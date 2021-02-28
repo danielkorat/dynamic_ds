@@ -1,2 +1,1 @@
-# dynamic_ds
-Dynamic Data Streaming Methods
+# Streaming Algorithms with Dynamic Memory
