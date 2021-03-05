@@ -93,9 +93,22 @@ array([  7.,  15.,  15.,   7.,  12.,   5.,   0.,   0.,   0.,   0.,   0.,
 The preprocessed data can be downloaded here:
 https://drive.google.com/open?id=1jWot63TJY8WHk5_bQPgIz-EPV0a6BDVX (~37GB after unpacking)
 
+To download and unpack from the command line:
+
+```
+pip install gdown
+gdown --id 1jWot63TJY8WHk5_bQPgIz-EPV0a6BDVX
+tar -xf aol_char_embed.tar.gz
+```
+
 For evaluation (see "Using the model's predictions" below), download the (query, counts) pairs here:
 https://drive.google.com/open?id=1RclH6mFvbGKm5aB4MQT9HVgQO94GLNmd (~30 GB after unpacking)
 
+```
+pip install gdown
+gdown --id 1RclH6mFvbGKm5aB4MQT9HVgQO94GLNmd
+tar -xf aol_query_counts.tar.gz
+```
 
 ## Model training and inference
 
