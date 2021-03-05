@@ -104,6 +104,8 @@ tar -xf aol_char_embed.tar.gz
 For evaluation (see "Using the model's predictions" below), download the (query, counts) pairs here:
 https://drive.google.com/open?id=1RclH6mFvbGKm5aB4MQT9HVgQO94GLNmd (~30 GB after unpacking)
 
+To download and unpack from the command line:
+
 ```
 pip install gdown
 gdown --id 1RclH6mFvbGKm5aB4MQT9HVgQO94GLNmd
