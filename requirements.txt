@@ -1,3 +1,7 @@
 matplotlib==2.0.2
-numpy==1.13.3
+numpy==1.19.5
 tensorflow_gpu==1.15.0
+datasets==1.4.1
+transformers==4.3.3
+seqeval==1.2.2
+torch==1.8.0
