@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+hf/output
 hf/runs
 runs
 *.gz
