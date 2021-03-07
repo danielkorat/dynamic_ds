@@ -3,6 +3,16 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+nlp/output
+nlp/runs
+runs
+*.gz
+*.npz
+summary/
+model/
+by_day
+.vscode
+
 # C extensions
 *.so
 
@@ -127,3 +137,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+.vector_cache
+nlp/output/config.json
