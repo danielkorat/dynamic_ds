@@ -20,6 +20,7 @@ def train_word_count_tune(config, checkpoint_dir=None, num_epochs=10, num_gpus=0
     dm = WordCountDataModule(config=config)
 
     trainer = pl.Trainer(
+        num_workers=22,
         max_epochs=num_epochs,
         gpus=num_gpus,
         logger=TensorBoardLogger(
@@ -42,6 +43,7 @@ def train_word_count_tune_checkpoint(config,
     dm = WordCountDataModule(config=config)
     
     trainer = pl.Trainer(
+        num_workers=22,
         max_epochs=num_epochs,
         gpus=num_gpus,
         logger=TensorBoardLogger(
@@ -75,9 +77,9 @@ def tune_word_count_asha(num_samples=10, num_epochs=10, gpus_per_trial=0):
     WordCountDataModule.download_data()
 
     config = {
-        'hidden_dim': tune.choice([16, 64, 128, 256]),
+        'hidden_dim': tune.choice([32, 64, 128]),
         'learning_rate': tune.loguniform(1e-4, 1e-1),
-        'batch_size': tune.choice([32, 64, 128]),
+        'batch_size': tune.choice([16, 32, 64]),
         'lowercase': tune.choice([True, False])
     }
 
@@ -164,6 +166,6 @@ if __name__ == "__main__":
         tune_word_count_pbt(num_samples=1, num_epochs=6, gpus_per_trial=0)
     else:
         # ASHA scheduler
-        tune_word_count_asha(num_samples=10, num_epochs=10, gpus_per_trial=0)
+        tune_word_count_asha(num_samples=3, num_epochs=25, gpus_per_trial=0)
         # Population based training
-        tune_word_count_pbt(num_samples=10, num_epochs=10, gpus_per_trial=0)
+        # tune_word_count_pbt(num_samples=10, num_epochs=10, gpus_per_trial=0)

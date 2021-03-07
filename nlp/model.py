@@ -28,7 +28,7 @@ class WordCountPredictor(pl.LightningModule):
     def __init__(self, config):
         super().__init__()
         self.save_hyperparameters()
-
+        self.lr = config['learning_rate']
         self.criterion = torch.nn.MSELoss()
         self.embed_size = 100 # CharNGram embed size
 
@@ -52,7 +52,7 @@ class WordCountPredictor(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
-        self.log('ptl/valid_loss', loss)
+        self.log('ptl/val_loss', loss)
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -62,7 +62,7 @@ class WordCountPredictor(pl.LightningModule):
         self.log('ptl/test_loss', loss)
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
 
     @staticmethod
     def add_model_specific_args(parent_parser):
