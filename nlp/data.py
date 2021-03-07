@@ -31,8 +31,7 @@ class CountsDataModule(pl.LightningDataModule):
                     counts[token.lower() if self.lowercase else token] += 1
         ds = []
         for t, c in counts.items():
-            debug = tensor(embedder[t], dtype=torch.float).unsqueeze(0)
-            ds.append((tensor(embedder[t], dtype=torch.float), tensor([log(c)], dtype=torch.float)))
+            ds.append((embedder[t].float(), tensor([log(c)], dtype=torch.float)))
         return ds
 
     def prepare_data(self):
