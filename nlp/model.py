@@ -20,8 +20,8 @@ from torch.nn import functional as F
 
 import pytorch_lightning as pl
 
-from data import CountsDataModule
-
+from nlp.data import CountsDataModule
+import numpy as np
 
 class CountPredictor(pl.LightningModule):
 
@@ -71,6 +71,13 @@ class CountPredictor(pl.LightningModule):
         return parser
 
 
+def predict(model, dl):
+    output = []
+    for item in dl:
+        output.append(model(item[0]).cpu().detach().numpy().flatten())
+    return output
+
+
 def cli_main():
     pl.seed_everything(1234)
 
@@ -96,7 +103,6 @@ def cli_main():
     # ------------
     # training
     # ------------
-    args.gpus = 4
     # args.backend = 'ddp2'
     trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model, datamodule=dm)
@@ -106,8 +112,27 @@ def cli_main():
     # ------------
     # todo: without passing model it fails for missing best weights
     # MisconfigurationException, 'ckpt_path is "best", but ModelCheckpoint is not configured to save the best model.'
-    result = trainer.test(model, datamodule=dm)
-    pprint(result)
+    test_loss = trainer.test(model, datamodule=dm)
+    pprint(test_loss)
+
+    test = dm.test_dataloader()
+    valid = dm.val_dataloader()
+    train = dm.train_dataloader()
+
+    with torch.no_grad():
+
+        test_output = predict(model, test)
+        valid_output = predict(model, valid)
+        train_output = predict(model, train)
+    filename =f'results.npz'
+
+    np.savez(filename,
+             train_output=train_output,
+             valid_output=valid_output,
+             test_output=test_output,
+             test_loss=test_loss,
+             )
+
 
 
 if __name__ == '__main__':
