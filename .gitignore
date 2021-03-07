@@ -139,3 +139,4 @@ dmypy.json
 .pyre/
 .vector_cache
 nlp/output/config.json
+lightning_logs
