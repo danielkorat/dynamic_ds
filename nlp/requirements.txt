@@ -2,6 +2,7 @@ datasets==1.4.1
 transformers==4.3.3
 torch==1.8.0
 seqeval==1.2.2
-pytorch_lightning=1.2.2
+pytorch_lightning==1.2.2
 torchtext==0.6.0
 tensorboard==2.4.1
+torchvision
