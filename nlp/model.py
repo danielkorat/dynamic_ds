@@ -20,19 +20,20 @@ from torch.nn import functional as F
 
 import pytorch_lightning as pl
 
-from nlp.data import CountsDataModule
+from data import WordCountDataModule
 import numpy as np
 
-class CountPredictor(pl.LightningModule):
 
-    def __init__(self, embed_size=100, hidden_dim=128, learning_rate=1e-3, criterion=torch.nn.MSELoss()):
+class WordCountPredictor(pl.LightningModule):
+    def __init__(self, config):
         super().__init__()
         self.save_hyperparameters()
 
-        self.criterion = self.hparams.criterion
+        self.criterion = torch.nn.MSELoss()
+        self.embed_size = 100 # CharNGram embed size
 
-        self.l1 = torch.nn.Linear(self.hparams.embed_size, self.hparams.hidden_dim)
-        self.l2 = torch.nn.Linear(self.hparams.hidden_dim, 1)
+        self.l1 = torch.nn.Linear(self.embed_size, config['hidden_dim'])
+        self.l2 = torch.nn.Linear(config['hidden_dim'], 1)
 
     def forward(self, x):
         x = x.view(x.size(0), -1)
@@ -43,22 +44,22 @@ class CountPredictor(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = self.hparams.criterion(y_hat, y)
-        self.log('train_loss', loss)
+        loss = self.criterion(y_hat, y)
+        self.log('ptl/train_loss', loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = self.hparams.criterion(y_hat, y)
-        self.log('valid_loss', loss)
+        loss = self.criterion(y_hat, y)
+        self.log('ptl/valid_loss', loss)
         return loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = self.hparams.criterion(y_hat, y)
-        self.log('test_loss', loss)
+        loss = self.criterion(y_hat, y)
+        self.log('ptl/test_loss', loss)
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
@@ -86,24 +87,32 @@ def cli_main():
     # ------------
     parser = ArgumentParser()
     parser = pl.Trainer.add_argparse_args(parser)
-    parser = CountPredictor.add_model_specific_args(parser)
-    parser = CountsDataModule.add_argparse_args(parser)
+    parser = WordCountPredictor.add_model_specific_args(parser)
+    parser = WordCountDataModule.add_argparse_args(parser)
     args = parser.parse_args()
 
     # ------------
     # data
     # ------------
-    dm = CountsDataModule.from_argparse_args(args)
+    dm = WordCountDataModule.from_argparse_args(args)
 
     # ------------
     # model
     # ------------
-    model = CountPredictor()
+    config = {
+        'hidden_dim': 128,
+        'learning_rate': 1e-3,
+    }
+    model = WordCountPredictor(config)
 
     # ------------
     # training
     # ------------
-    # args.backend = 'ddp2'
+    # args.gpus = 4
+    # args.accelerator = 'ddp'
+    args.max_epochs = 20
+    args.num_workers = 88
+
     trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model, datamodule=dm)
 
@@ -120,7 +129,6 @@ def cli_main():
     train = dm.train_dataloader()
 
     with torch.no_grad():
-
         test_output = predict(model, test)
         valid_output = predict(model, valid)
         train_output = predict(model, train)
@@ -132,7 +140,6 @@ def cli_main():
              test_output=test_output,
              test_loss=test_loss,
              )
-
 
 
 if __name__ == '__main__':

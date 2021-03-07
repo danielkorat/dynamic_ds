@@ -1,5 +1,3 @@
-import os
-
 import torch
 from torch import tensor
 from torch.utils.data import DataLoader, random_split
@@ -15,12 +13,12 @@ import random
 from numpy import log
 from torchtext.vocab import CharNGram
 
-class CountsDataModule(pl.LightningDataModule):
-    def __init__(self, batch_size=64, embedder_cls=CharNGram, lowercase=True):
+class WordCountDataModule(pl.LightningDataModule):
+    def __init__(self, config, embedder_cls=CharNGram):
         super().__init__()
-        self.batch_size = batch_size
+        self.batch_size = config['batch_size']
+        self.lowercase = config['lowercase']
         self.embedder_cls = embedder_cls
-        self.lowercase = lowercase
 
     def add_unique_counts_and_embeds(self, ds):
         counts = defaultdict(int)
@@ -36,12 +34,17 @@ class CountsDataModule(pl.LightningDataModule):
 
     def prepare_data(self):
         # download only
-        load_dataset("conll2003")
+        self.download_data()
 
         # ORIGINAL
         # # download only
         # MNIST(os.getcwd(), train=True, download=True, transform=transforms.ToTensor())
         # MNIST(os.getcwd(), train=False, download=True, transform=transforms.ToTensor())
+
+    @staticmethod
+    def download_data():
+        CharNGram()
+        load_dataset("conll2003")
 
     def setup(self, stage):
         conll_dataset = load_dataset("conll2003")

@@ -5,4 +5,6 @@ seqeval==1.2.2
 pytorch_lightning==1.2.2
 torchtext==0.6.0
 tensorboard==2.4.1
-torchvision
+tensorboardX==2.1
+tabulate==0.8.9
+https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-2.0.0.dev0-cp36-cp36m-manylinux2014_x86_64.whl
