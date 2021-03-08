@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 nlp/output
+nlp/data/*
 nlp/runs
 runs
 *.gz
