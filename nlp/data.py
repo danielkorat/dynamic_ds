@@ -1,22 +1,18 @@
 import os
+
 import torch
 from torch import tensor
 from torch.utils.data import DataLoader, random_split
-from torchvision.datasets import MNIST
-from torchvision import transforms
-
-import tempfile
 import pytorch_lightning as pl
 
 from datasets import load_dataset
 from collections import defaultdict
 from tqdm import tqdm
-import random
 from numpy import log
 from torchtext.vocab import CharNGram
 from pathlib import Path
 
-DATA_DIR = Path('nlp/data')
+DATA_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / 'data'
 
 class WordCountDataModule(pl.LightningDataModule):
     def __init__(self, config, embedder_cls=CharNGram):
@@ -26,7 +22,7 @@ class WordCountDataModule(pl.LightningDataModule):
 
     def add_unique_counts_and_embeds(self, ds):
         counts = defaultdict(int)
-        embedder = self.embedder_cls()
+        embedder = self.embedder_cls(cache=DATA_DIR / "vector_cache")
         for split in 'train', 'test', 'validation':
             for example in tqdm(ds[split]):
                 for token in example['tokens']:
@@ -42,7 +38,7 @@ class WordCountDataModule(pl.LightningDataModule):
 
     @staticmethod
     def download_data():
-        CharNGram(cache=DATA_DIR / ".vector_cache")
+        CharNGram(cache=DATA_DIR / "vector_cache")
         load_dataset("conll2003", data_dir=DATA_DIR / "conll_data")
 
     def setup(self, stage):
