@@ -72,7 +72,7 @@ def train_word_count_tune_checkpoint(config,
     trainer.fit(model, datamodule=dm)
 
 def tune_word_count_asha(num_samples=10, num_epochs=10, gpus_per_trial=0):
-    # WordCountDataModule.download_data()
+    WordCountDataModule.download_data()
 
     config = {
         'hidden_dim': tune.choice([32, 64, 128]),
@@ -111,13 +111,12 @@ def tune_word_count_asha(num_samples=10, num_epochs=10, gpus_per_trial=0):
 
 
 def tune_word_count_pbt(num_samples=10, num_epochs=10, gpus_per_trial=0):
-    # WordCountDataModule.download_data()
+    WordCountDataModule.download_data()
 
     config = {
         'hidden_dim': tune.choice([16, 64, 128, 256]),
         'learning_rate': tune.loguniform(1e-4, 1e-1),
-        'batch_size': tune.choice([32, 64, 128]),
-        'lowercase': tune.choice([True, False])
+        'batch_size': tune.choice([32, 64, 128])
     }
 
     scheduler = PopulationBasedTraining(
@@ -128,7 +127,7 @@ def tune_word_count_pbt(num_samples=10, num_epochs=10, gpus_per_trial=0):
         })
 
     reporter = CLIReporter(
-        parameter_columns=["hidden_dim", "learning_rate", "batch_size", "lowercase"],
+        parameter_columns=["hidden_dim", "learning_rate", "batch_size"],
         metric_columns=["loss", "training_iteration"])
 
     analysis = tune.run(
