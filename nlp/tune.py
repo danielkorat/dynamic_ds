@@ -4,8 +4,6 @@ from data import WordCountDataModule
 import os
 
 import pytorch_lightning as pl
-import shutil
-import tempfile
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.utilities.cloud_io import load as pl_load
 from ray import tune
