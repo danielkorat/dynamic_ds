@@ -40,7 +40,6 @@ def train_word_count_tune_checkpoint(config,
     dm = WordCountDataModule(config=config)
     
     trainer = pl.Trainer(
-        default_root_dir='/home/iddo/PycharmProjects/learning-ds',
         max_epochs=num_epochs,
         gpus=num_gpus,
         logger=TensorBoardLogger(
