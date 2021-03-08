@@ -20,7 +20,6 @@ def train_word_count_tune(config, checkpoint_dir=None, num_epochs=10, num_gpus=0
     dm = WordCountDataModule(config=config)
 
     trainer = pl.Trainer(
-        num_workers=22,
         max_epochs=num_epochs,
         gpus=num_gpus,
         logger=TensorBoardLogger(
@@ -43,7 +42,6 @@ def train_word_count_tune_checkpoint(config,
     dm = WordCountDataModule(config=config)
     
     trainer = pl.Trainer(
-        num_workers=22,
         max_epochs=num_epochs,
         gpus=num_gpus,
         logger=TensorBoardLogger(
@@ -74,7 +72,7 @@ def train_word_count_tune_checkpoint(config,
     trainer.fit(model, datamodule=dm)
 
 def tune_word_count_asha(num_samples=10, num_epochs=10, gpus_per_trial=0):
-    WordCountDataModule.download_data()
+    # WordCountDataModule.download_data()
 
     config = {
         'hidden_dim': tune.choice([32, 64, 128]),
@@ -89,7 +87,7 @@ def tune_word_count_asha(num_samples=10, num_epochs=10, gpus_per_trial=0):
         reduction_factor=2)
 
     reporter = CLIReporter(
-        parameter_columns=["hidden_dim", "learning_rate", "batch_size"],
+        parameter_columns=["hidden_dim", "learning_rate", "batch_size", "lowercase"],
         metric_columns=["loss", "training_iteration"])
 
     analysis = tune.run(
@@ -113,7 +111,7 @@ def tune_word_count_asha(num_samples=10, num_epochs=10, gpus_per_trial=0):
 
 
 def tune_word_count_pbt(num_samples=10, num_epochs=10, gpus_per_trial=0):
-    WordCountDataModule.download_data()
+    # WordCountDataModule.download_data()
 
     config = {
         'hidden_dim': tune.choice([16, 64, 128, 256]),
@@ -130,7 +128,7 @@ def tune_word_count_pbt(num_samples=10, num_epochs=10, gpus_per_trial=0):
         })
 
     reporter = CLIReporter(
-        parameter_columns=["hidden_dim", "learning_rate", "batch_size"],
+        parameter_columns=["hidden_dim", "learning_rate", "batch_size", "lowercase"],
         metric_columns=["loss", "training_iteration"])
 
     analysis = tune.run(
