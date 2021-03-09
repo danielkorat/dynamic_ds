@@ -11,6 +11,9 @@ from tqdm import tqdm
 from numpy import log
 from torchtext.vocab import CharNGram
 from pathlib import Path
+import pandas as pd
+import matplotlib.pyplot as plt
+
 
 DATA_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / 'data'
 
@@ -57,3 +60,27 @@ class WordCountDataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.batch_size)
+
+
+if __name__=="__main__":
+    DS_NAME = "conll2003"
+
+    counts = defaultdict(int)
+    ds = load_dataset(DS_NAME)
+    for split in 'train', 'test', 'validation':
+        for example in tqdm(ds[split]):
+            for token in example['tokens']:
+                counts[token.lower()] += 1
+
+    log_counts = defaultdict(int)
+    for w, count in counts.items():
+        log_counts[w] = log(count)
+    sorted_counts = sorted(log_counts.values(), reverse=True)
+    df = pd.DataFrame(data=sorted_counts)
+    df.index = log(df.index)
+
+    df.plot()
+    plt.xlabel("sorted items in log scale")
+    plt.ylabel("frequency in log scale")
+    plt.legend([DS_NAME])
+    plt.show()
