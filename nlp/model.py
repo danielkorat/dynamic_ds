@@ -95,7 +95,7 @@ def cli_main():
     trainer_args = {
         # 'gpus': 4,
         # 'accelerator': 'ddp',
-        'max_epochs': 20,
+        'max_epochs': 3,
     }
     trainer = pl.Trainer(**trainer_args)
     trainer.fit(model, datamodule=datamodule)
