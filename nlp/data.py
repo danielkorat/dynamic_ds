@@ -1,66 +1,91 @@
-import os
+from os.path import dirname, realpath, isfile
+import pickle
+from pathlib import Path
+from collections import defaultdict
+from abc import abstractmethod
 
 import torch
-from torch import tensor
 from torch.utils.data import DataLoader, random_split
 import pytorch_lightning as pl
-
 from datasets import load_dataset
-from collections import defaultdict
-from tqdm import tqdm
 from numpy import log
 from torchtext.vocab import CharNGram
 from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 import json
+from tqdm import tqdm
 
-DATA_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / 'data'
+CACHE_DIR = Path(dirname(realpath(__file__))) / 'data'
+DATA_DIR = CACHE_DIR / "conll_data"
+VECTORS_DIR = CACHE_DIR / ".vector_cache"
+WORD_COUNT_DATA = CACHE_DIR / 'word_count.pickle'
 
-class WordCountDataModule(pl.LightningDataModule):
-    def __init__(self, config, embedder_cls=CharNGram):
+
+VECTORS = CharNGram
+
+class HuggingfaceDataModule(pl.LightningDataModule):
+    def __init__(self, config):
         super().__init__()
         self.batch_size = config['batch_size']
-        self.embedder_cls = embedder_cls
-
-    def add_unique_counts_and_embeds(self, ds):
-        counts = defaultdict(int)
-        embedder = self.embedder_cls(cache=DATA_DIR / "vector_cache")
-        for split in 'train', 'test', 'validation':
-            for example in tqdm(ds[split]):
-                for token in example['tokens']:
-                    counts[token.lower()] += 1
-        ds = []
-        for t, c in counts.items():
-            ds.append((embedder[t].float(), tensor([log(c)], dtype=torch.float)))
-        return ds
+        self.num_workers = 88 # config['num_workers']
 
     def prepare_data(self):
         # download only
-        self.download_data()
+        self.download_and_preprocess()
 
     @staticmethod
-    def download_data():
-        CharNGram(cache=DATA_DIR / "vector_cache")
-        load_dataset("conll2003", data_dir=DATA_DIR / "conll_data")
+    @abstractmethod
+    def download_and_preprocess(ds):
+        raise NotImplementedError()
 
     def setup(self, stage):
-        conll_dataset = load_dataset("conll2003")
-        ds = self.add_unique_counts_and_embeds(conll_dataset)
+        ds = self.download_and_preprocess()
+
+        # Splits
         split_sizes = [int(len(ds) * 0.7), int(len(ds) * 0.15), int(len(ds) * 0.15)]
         if sum(split_sizes) < len(ds):
             split_sizes[0] += len(ds) - sum(split_sizes)
         self.train_dataset, self.val_dataset, self.test_dataset = random_split(ds, split_sizes)
 
+    def split_dataloader(self, split):
+        return DataLoader(split, batch_size=self.batch_size, num_workers=self.num_workers)
+
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size)
+        return self.split_dataloader(self.train_dataset)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size)
+        return self.split_dataloader(self.val_dataset)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size)
+        return self.split_dataloader(self.test_dataset)
 
+class WordCountDataModule(HuggingfaceDataModule):
+    def __init__(self, config):
+        super().__init__(config)
+
+    @staticmethod
+    def download_and_preprocess(ds_name="conll2003"):
+        if isfile(WORD_COUNT_DATA):
+            with open(WORD_COUNT_DATA, 'rb') as ds_pickle:
+                word_count_ds = pickle.load(ds_pickle)
+
+        else:
+            conll_dataset = load_dataset(ds_name)
+            embedder = VECTORS(cache=VECTORS_DIR)
+
+            counts = defaultdict(int)
+            for split in 'train', 'test', 'validation':
+                for example in conll_dataset[split]:
+                    for token in example['tokens']:
+                        counts[token.lower()] += 1
+            word_count_ds = []
+            for t, c in counts.items():
+                word_count_ds.append((embedder[t].float(), torch.tensor([log(c)], dtype=torch.float)))
+
+            with open(WORD_COUNT_DATA, 'wb') as ds_pickle:
+                pickle.dump(word_count_ds, ds_pickle)
+        return word_count_ds
 
 if __name__=="__main__":
     DS_NAME = "conll2003"
