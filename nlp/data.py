@@ -85,3 +85,25 @@ class WordCountDataModule(HuggingfaceDataModule):
                 pickle.dump(word_count_ds, ds_pickle)
         return word_count_ds
 
+if __name__=="__main__":
+    DS_NAME = "conll2003"
+
+    counts = defaultdict(int)
+    ds = load_dataset(DS_NAME)
+    for split in 'train', 'test', 'validation':
+        for example in tqdm(ds[split]):
+            for token in example['tokens']:
+                counts[token.lower()] += 1
+
+    log_counts = defaultdict(int)
+    for w, count in counts.items():
+        log_counts[w] = log(count)
+    sorted_counts = sorted(log_counts.values(), reverse=True)
+    df = pd.DataFrame(data=sorted_counts)
+    df.index = log(df.index)
+
+    df.plot()
+    plt.xlabel("sorted items in log scale")
+    plt.ylabel("frequency in log scale")
+    plt.legend([DS_NAME])
+    plt.show()
