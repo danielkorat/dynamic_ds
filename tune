@@ -1,0 +1,1 @@
+/home/daniel_nlp/learning-ds/.env/bin/python nlp/tune.py > tune.log 2>&1 &

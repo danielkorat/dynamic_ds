@@ -13,10 +13,11 @@
 # limitations under the License.
 
 from argparse import ArgumentParser
+from os import X_OK
 from pprint import pprint
 
 import torch
-from torch.nn import functional as F
+from torch import nn
 
 import pytorch_lightning as pl
 
@@ -29,16 +30,18 @@ class WordCountPredictor(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.lr = config['learning_rate']
-        self.criterion = torch.nn.MSELoss()
+        self.criterion = nn.MSELoss()
         self.embed_size = 100 # CharNGram embed size
 
-        self.l1 = torch.nn.Linear(self.embed_size, config['hidden_dim'])
-        self.l2 = torch.nn.Linear(config['hidden_dim'], 1)
+        self.l1 = nn.Linear(self.embed_size, config['hidden_dim'])
+        self.dropout = nn.Dropout(p=config['dropout_prob'])
+        self.l2 = nn.Linear(config['hidden_dim'], 1)
 
     def forward(self, x):
         x = x.view(x.size(0), -1)
         x = torch.relu(self.l1(x))
         x = torch.relu(self.l2(x))
+        x = self.dropout(x)
         return x
 
     def training_step(self, batch, batch_idx):
@@ -64,13 +67,6 @@ class WordCountPredictor(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        parser = ArgumentParser(parents=[parent_parser], add_help=False)
-        parser.add_argument('--hidden_dim', type=int, default=128)
-        parser.add_argument('--learning_rate', type=float, default=0.0001)
-        return parser
-
 
 def predict(model, dl):
     output = []
@@ -82,56 +78,39 @@ def predict(model, dl):
 def cli_main():
     pl.seed_everything(1234)
 
-    # ------------
-    # args
-    # ------------
-    parser = ArgumentParser()
-    parser = pl.Trainer.add_argparse_args(parser)
-    parser = WordCountPredictor.add_model_specific_args(parser)
-    parser = WordCountDataModule.add_argparse_args(parser)
-    args = parser.parse_args()
-
-    # ------------
-    # data
-    # ------------
-    dm = WordCountDataModule.from_argparse_args(args)
-
-    # ------------
-    # model
-    # ------------
     config = {
         'hidden_dim': 128,
         'learning_rate': 1e-3,
+        'batch_size': 32,
     }
+
+    datamodule = WordCountDataModule(config)
     model = WordCountPredictor(config)
 
     # ------------
     # training
     # ------------
-    # args.gpus = 4
-    # args.accelerator = 'ddp'
-    args.max_epochs = 20
-    args.num_workers = 88
 
-    trainer = pl.Trainer.from_argparse_args(args)
-    trainer.fit(model, datamodule=dm)
+    trainer_args = {
+        # 'gpus': 4,
+        # 'accelerator': 'ddp',
+        'max_epochs': 20,
+    }
+    trainer = pl.Trainer(**trainer_args)
+    trainer.fit(model, datamodule=datamodule)
 
     # ------------
     # testing
     # ------------
     # todo: without passing model it fails for missing best weights
     # MisconfigurationException, 'ckpt_path is "best", but ModelCheckpoint is not configured to save the best model.'
-    test_loss = trainer.test(model, datamodule=dm)
+    test_loss = trainer.test(model, datamodule=datamodule)
     pprint(test_loss)
 
-    test = dm.test_dataloader()
-    valid = dm.val_dataloader()
-    train = dm.train_dataloader()
-
     with torch.no_grad():
-        test_output = predict(model, test)
-        valid_output = predict(model, valid)
-        train_output = predict(model, train)
+        test_output = predict(model, datamodule.test_dataloader())
+        valid_output = predict(model, datamodule.val_dataloader())
+        train_output = predict(model, datamodule.train_dataloader())
     filename =f'results.npz'
 
     np.savez(filename,

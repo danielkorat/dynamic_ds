@@ -70,13 +70,14 @@ def train_word_count_tune_checkpoint(config,
     trainer.fit(model, datamodule=dm)
 
 def tune_word_count_asha(num_samples=10, num_epochs=10, gpus_per_trial=0):
-    WordCountDataModule.download_data()
+    WordCountDataModule.download_and_preprocess()
 
     config = {
         'hidden_dim': tune.choice([32, 64, 128]),
         'learning_rate': tune.loguniform(1e-4, 1e-1),
         'batch_size': tune.choice([16, 32, 64]),
-        'lowercase': tune.choice([True, False])
+        'dropout_prob': tune.choice([0.0, 0.3, 0.4, 0.5]),
+        # 'num_workers': 1
     }
 
     scheduler = ASHAScheduler(
@@ -85,7 +86,7 @@ def tune_word_count_asha(num_samples=10, num_epochs=10, gpus_per_trial=0):
         reduction_factor=2)
 
     reporter = CLIReporter(
-        parameter_columns=["hidden_dim", "learning_rate", "batch_size", "lowercase"],
+        parameter_columns=["hidden_dim", "learning_rate", "batch_size", 'dropout_prob'],
         metric_columns=["loss", "training_iteration"])
 
     analysis = tune.run(
@@ -109,23 +110,25 @@ def tune_word_count_asha(num_samples=10, num_epochs=10, gpus_per_trial=0):
 
 
 def tune_word_count_pbt(num_samples=10, num_epochs=10, gpus_per_trial=0):
-    WordCountDataModule.download_data()
+    WordCountDataModule.download_and_preprocess()
 
     config = {
-        'hidden_dim': tune.choice([16, 64, 128, 256]),
-        'learning_rate': tune.loguniform(1e-4, 1e-1),
-        'batch_size': tune.choice([32, 64, 128])
+        'hidden_dim': tune.choice([32, 64, 128]),
+        'learning_rate': 1e-3,
+        'batch_size': 64,
+        'dropout_prob': tune.choice([0.0, 0.3, 0.4, 0.5]),
+        # 'num_workers': 1
     }
 
     scheduler = PopulationBasedTraining(
         perturbation_interval=4,
         hyperparam_mutations={
-            "lr": tune.loguniform(1e-4, 1e-1),
-            "batch_size": [32, 64, 128]
+            "learning_rate": tune.loguniform(1e-4, 1e-1),
+            "batch_size": [32, 64, 128],
         })
 
     reporter = CLIReporter(
-        parameter_columns=["hidden_dim", "learning_rate", "batch_size"],
+        parameter_columns=["hidden_dim", "learning_rate", "batch_size", 'dropout_prob'],
         metric_columns=["loss", "training_iteration"])
 
     analysis = tune.run(
@@ -153,14 +156,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--smoke-test", action="store_true", help="Finish quickly for testing")
+        "--smoke", action="store_true", help="Finish quickly for testing")
     args, _ = parser.parse_known_args()
 
-    if args.smoke_test:
-        tune_word_count_asha(num_samples=1, num_epochs=6, gpus_per_trial=0)
-        tune_word_count_pbt(num_samples=1, num_epochs=6, gpus_per_trial=0)
+    if args.smoke:
+        tune_word_count_asha(num_samples=2, num_epochs=3, gpus_per_trial=0)
+        tune_word_count_pbt(num_samples=2, num_epochs=3, gpus_per_trial=0)
     else:
         # ASHA scheduler
-        tune_word_count_asha(num_samples=3, num_epochs=25, gpus_per_trial=0)
+        tune_word_count_asha(num_samples=5, num_epochs=50, gpus_per_trial=0)
         # Population based training
-        # tune_word_count_pbt(num_samples=10, num_epochs=10, gpus_per_trial=0)
+        tune_word_count_pbt(num_samples=5, num_epochs=50, gpus_per_trial=0)
