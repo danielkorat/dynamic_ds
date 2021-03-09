@@ -15,6 +15,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+from itertools import combinations, chain
+from functools import partial
+from collections import Counter
+
+
 CACHE_DIR = Path(dirname(realpath(__file__))) / 'data'
 VECTORS_DIR = CACHE_DIR / ".vector_cache"
 
@@ -60,7 +65,6 @@ class HuggingfaceDataModule(pl.LightningDataModule):
 class WordCountDataModule(HuggingfaceDataModule):
     ds_name = "conll2003"
     ds_cache = CACHE_DIR / 'word_count.pickle'
-    data_dir = CACHE_DIR / 'conll_data'
 
     def __init__(self, config):
         super().__init__(config)
@@ -73,7 +77,7 @@ class WordCountDataModule(HuggingfaceDataModule):
 
         else:
             conll_dataset = load_dataset(path=WordCountDataModule.ds_name,
-                data_dir=WordCountDataModule.data_dir)
+                cache_dir=CACHE_DIR)
             embedder = VECTORS(cache=VECTORS_DIR)
 
             counts = defaultdict(int)
@@ -93,37 +97,61 @@ class WordCountDataModule(HuggingfaceDataModule):
 class WikiDataModule(HuggingfaceDataModule):
     ds_name = "wikicorpus"
     ds_cache = CACHE_DIR / 'wiki.pickle'
-    data_dir = CACHE_DIR / 'wiki_data'
 
     def __init__(self, config):
         super().__init__(config)
 
     @staticmethod
     def download_and_preprocess():
-        conll_dataset = load_dataset(path=WikiDataModule.ds_name, name='raw_en',
-            data_dir=WikiDataModule.data_dir)
+        conll_dataset = load_dataset(path=WikiDataModule.ds_name, name='tagged_en',
+            cache_dir=CACHE_DIR)
+
+
+def count_bigrams_in_window(ds, window_size=7):
+    counts = defaultdict(int)
+    for split in 'train', 'test', 'validation':
+        for example in tqdm(ds[split]):
+            tokens = example['tokens']
+            for i in range(len(tokens)):
+                window = tokens[i: i + window_size]
+                # window = remove_stop_words(window)
+                window = map(str.lower, window)
+                for bigram in combinations(tokens, r=2):
+                    counts[bigram] += 1
+
+def f(s):
+    tokens = s.split()
+    return Counter(chain.from_iterable(map(partial(combinations, r=2),
+                                zip(tokens,
+                                    tokens[1:],
+                                    tokens[2:]))))
+
+
+def plot_frequencies(ds_name, splits=('train', 'test', 'validation'), tokens_key='tokens', **kwargs):
+    counts = defaultdict(int)
+    ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)
+    for split in splits:
+        for example in tqdm(ds[split]):
+            for token in example[tokens_key]:
+                counts[token.lower()] += 1
+
+    log_counts = defaultdict(int)
+    for w, count in counts.items():
+        log_counts[w] = log(count)
+    sorted_log_counts = sorted(log_counts.values(), reverse=True)
+
+    # sorted_counts = sorted(counts.values(), reverse=True)
+    df = pd.DataFrame(data=sorted_log_counts)
+    df.index = df.index
+
+    fig = df.plot().get_figure()
+    plt.xlabel("sorted items in log scale")
+    plt.ylabel("frequency in log scale")
+    plt.legend(['wino_bias'])
+    fig.savefig(f'nlp/log_frequency_{ds_name}.png')
 
 if __name__== "__main__":
-    ds = WikiDataModule.download_and_preprocess()
+    # ds = WikiDataModule.download_and_preprocess()
 
-    # DS_NAME = "conll2003"
-
-    # counts = defaultdict(int)
-    # ds = load_dataset(DS_NAME)
-    # for split in 'train', 'test', 'validation':
-    #     for example in tqdm(ds[split]):
-    #         for token in example['tokens']:
-    #             counts[token.lower()] += 1
-
-    # log_counts = defaultdict(int)
-    # for w, count in counts.items():
-    #     log_counts[w] = log(count)
-    # sorted_counts = sorted(log_counts.values(), reverse=True)
-    # df = pd.DataFrame(data=sorted_counts)
-    # df.index = log(df.index)
-
-    # df.plot()
-    # plt.xlabel("sorted items in log scale")
-    # plt.ylabel("frequency in log scale")
-    # plt.legend([DS_NAME])
-    # plt.show()
+    # load_dataset(path='wino_bias', cache_dir=CACHE_DIR)
+    plot_frequencies('wikicorpus', splits=('train',), tokens_key='sentence', name='tagged_en')
