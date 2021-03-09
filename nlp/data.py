@@ -13,7 +13,7 @@ from torchtext.vocab import CharNGram
 from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
-
+from tqdm import tqdm
 
 CACHE_DIR = Path(dirname(realpath(__file__))) / 'data'
 DATA_DIR = CACHE_DIR / "conll_data"

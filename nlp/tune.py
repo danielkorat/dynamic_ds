@@ -160,8 +160,8 @@ if __name__ == "__main__":
     args, _ = parser.parse_known_args()
 
     if args.smoke:
-        tune_word_count_asha(num_samples=2, num_epochs=3, gpus_per_trial=0)
-        tune_word_count_pbt(num_samples=2, num_epochs=3, gpus_per_trial=0)
+        tune_word_count_asha(num_samples=1, num_epochs=3, gpus_per_trial=0)
+        tune_word_count_pbt(num_samples=1, num_epochs=3, gpus_per_trial=0)
     else:
         # ASHA scheduler
         tune_word_count_asha(num_samples=5, num_epochs=50, gpus_per_trial=0)

@@ -82,6 +82,7 @@ def cli_main():
         'hidden_dim': 128,
         'learning_rate': 1e-3,
         'batch_size': 32,
+        'dropout_prob': 0.0
     }
 
     datamodule = WordCountDataModule(config)
