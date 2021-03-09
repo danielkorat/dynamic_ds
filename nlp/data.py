@@ -10,6 +10,10 @@ import pytorch_lightning as pl
 from datasets import load_dataset
 from numpy import log
 from torchtext.vocab import CharNGram
+from pathlib import Path
+import pandas as pd
+import matplotlib.pyplot as plt
+
 
 CACHE_DIR = Path(dirname(realpath(__file__))) / 'data'
 DATA_DIR = CACHE_DIR / "conll_data"
