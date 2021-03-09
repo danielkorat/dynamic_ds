@@ -13,7 +13,7 @@ from torchtext.vocab import CharNGram
 from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
-
+import json
 
 DATA_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / 'data'
 
@@ -84,3 +84,5 @@ if __name__=="__main__":
     plt.ylabel("frequency in log scale")
     plt.legend([DS_NAME])
     plt.show()
+    with open(f'../{DS_NAME}.json', 'w') as f:
+        json.dump(counts, f)
