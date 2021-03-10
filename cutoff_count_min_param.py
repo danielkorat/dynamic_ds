@@ -122,9 +122,9 @@ class LearnedCountMinEvaluation:
         if args.data_name == 'aol':
             x_valid, y_valid = get_data_aol_query_list(args.valid_data)
             x_test, y_test = get_data_aol_query_list(args.test_data)
-        elif args.data_name == 'conll':
-            x_valid, y_valid = get_data_conll_query(args.valid_data[0])
-            x_test, y_test = get_data_conll_query(args.test_data[0])
+        elif args.data_name in ['conll', 'wikicorpus']:
+            x_valid, y_valid = get_data_conll_query(args.valid_data)
+            x_test, y_test = get_data_conll_query(args.test_data)
         else:
             x_valid, y_valid = get_data_str_with_ports_list(args.valid_data)
             x_test, y_test = get_data_str_with_ports_list(args.test_data)
@@ -136,7 +136,7 @@ class LearnedCountMinEvaluation:
         if args.lookup_data:
             if args.data_name == 'aol':
                 x_train, y_train = get_data_aol_query_list(args.lookup_data)
-            elif args.data_name == 'conll':
+            elif args.data_name in ['conll', 'wikicorpus']:
                 x_train, y_train = get_data_conll_query(args.lookup_data[0])
             else:
                 x_train, y_train = get_data_str_with_ports_list(
@@ -339,7 +339,7 @@ if __name__ == '__main__':
     argparser.add_argument("--n_hashes_list", type=int, nargs='*', help="number of hashes", required=True)
     argparser.add_argument("--perfect_order", action='store_true', default=False)
     argparser.add_argument("--n_workers", type=int, help="number of workers", default=10)
-    argparser.add_argument("--data_name", default="aol", choices=["aol", "ip", "conll"])
+    argparser.add_argument("--data_name", default="aol", choices=["aol", "ip", "conll", "wikicorpus"])
     argparser.add_argument("--count_sketch", action='store_true', default=False)
     args = argparser.parse_args()
 
