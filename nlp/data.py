@@ -108,10 +108,11 @@ class WikiBigramsDataModule(HuggingfaceDataModule):
 
     @staticmethod
     def download_and_preprocess(n=2, limit_prop=0.01):
-        save_name = CACHE_DIR / f"{n}_grams_wikicorpus_{limit_prop * 100}%"
-        if isfile(save_name):
+        save_name = f"{n}_grams_wikicorpus_{limit_prop * 100}%"
+        cache_file = CACHE_DIR / f"{save_name}.npz"
+        if isfile(cache_file):
             print("Loading WikiBigramsDataModule from cache...")
-            loaded = np.load(save_name)
+            loaded = np.load(cache_file)
             x, y = loaded['x'], loaded['y']
         else:
             VECTORS(cache=VECTORS_DIR)
@@ -167,7 +168,7 @@ def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', 
     print(f'Number of bigrams: {len(res)}')
     del res
     x_array, y_array = np.array(xs), np.array(ys)
-    np.savez_compressed(f'{save_name}.npz', x=x_array, y=y_array)
+    np.savez_compressed(CACHE_DIR / f'{save_name}.npz', x=x_array, y=y_array)
     return x_array, y_array
 
             
