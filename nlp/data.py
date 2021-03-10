@@ -1,3 +1,4 @@
+import operator
 from os.path import dirname, realpath, isfile
 import pickle
 from pathlib import Path
