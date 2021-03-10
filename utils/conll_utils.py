@@ -1,9 +1,8 @@
-import json
+import numpy as np
 
 
 def get_data_conll_query(data_path):
-    with open(data_path, 'r') as f:
-        data = json.load(f)
-    x = list(data.keys())
-    y = list(data.values())
+    data = np.load(data_path)
+    x = data['x']
+    y = data['y']
     return x, y
