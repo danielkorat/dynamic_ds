@@ -23,6 +23,7 @@ from itertools import combinations, chain
 from functools import partial
 from collections import Counter
 
+import numpy as np
 from nltk.lm import NgramCounter
 from nltk.util import ngrams
 
@@ -165,11 +166,20 @@ def get_ngram_counts(ds_name, limit_prop, n=2, tokens_key='tokens', **kwargs):
             res[(a[0], b)] = cnt 
     sorted_res = sorted(res.items(), key=operator.itemgetter(1), reverse=True)
 
+    xs, ys = [], []
+    for (a, b), count in sorted_res:
+        xs.append(' '.join((str(a), str(b))))
+        ys.append(count)
+
     with open(f'nlp/{n}_gram_counts_{ds_name}_{limit_prop * 100}%.json', 'w') as f:
         json.dump(sorted_res, f, indent=2)
 
     print(f'Number of examples used: {limit}')
     print(f'Number of bigrams: {len(sorted_res)}')
+
+    np.savez_compressed(f'nlp/{n}_gram_counts_{ds_name}_{limit_prop * 100}%.npz',
+            x=np.array(xs), y=np.array(ys))
+
     return sorted_res
 
 if __name__== "__main__":

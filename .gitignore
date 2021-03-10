@@ -8,11 +8,13 @@ nlp/data/*
 nlp/runs
 runs
 *.gz
-*.npz
 summary/
 model/
 by_day
 .vscode
+
+1-day_len60
+predictions
 
 # C extensions
 *.so
