@@ -115,7 +115,7 @@ class WikiDataModule(HuggingfaceDataModule):
             cache_dir=CACHE_DIR)
 
 
-def plot_frequencies(ds_name, limit_prop, tokens_key='tokens', **kwargs):
+def plot_token_frequencies(ds_name, limit_prop, tokens_key='tokens', **kwargs):
     counts = defaultdict(int)
     ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)
     stop_counter = 0
@@ -151,17 +151,22 @@ def get_ngram_counts(ds_name, limit_prop, n=2, tokens_key='tokens', **kwargs):
     ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)['train']
     limit = int(limit_prop * len(ds))
 
+    print('Computing n-grams...')
     n_grams = []
     for i, s in tqdm(enumerate(ds), total=limit):
         if i == limit:
             break
         n_grams.append(ngrams(s[tokens_key], n))
 
-    res = {(a[0], b): cnt for a, b_list in NgramCounter(n_grams)[n].items() for b, cnt in b_list.items()}
+    print('Counting n-grams...')
+    res = {}
+    for a, b_list in tqdm(NgramCounter(n_grams)[n].items()):
+        for b, cnt in b_list.items():
+            res[(a[0], b)] = cnt 
     sorted_res = sorted(res.items(), key=operator.itemgetter(1), reverse=True)
 
-    with open(f'nlp/{n}_gram_counts_{ds_name}_{limit_prop}.json', 'w') as f:
-        json.dump(sorted_res, f)
+    with open(f'nlp/{n}_gram_counts_{ds_name}_{limit_prop * 100}%.json', 'w') as f:
+        json.dump(sorted_res, f, indent=2)
 
     print(f'Number of examples used: {limit}')
     print(f'Number of bigrams: {len(sorted_res)}')
@@ -170,5 +175,4 @@ def get_ngram_counts(ds_name, limit_prop, n=2, tokens_key='tokens', **kwargs):
 if __name__== "__main__":
     # plot_frequencies('wikicorpus', limit_prop=0.1, tokens_key='sentence', name='tagged_en')
 
-    wiki_bigrams = get_ngram_counts('wikicorpus', limit_prop=0.001, n=2, tokens_key='sentence', name='tagged_en')
-    print('\n'.join(map(str, wiki_bigrams[:50])))
+    wiki_bigrams = get_ngram_counts('wikicorpus', limit_prop=0.1, n=2, tokens_key='sentence', name='tagged_en')
