@@ -17,10 +17,6 @@ import matplotlib.pyplot as plt
 import json
 from tqdm import tqdm
 
-from itertools import combinations, chain
-from functools import partial
-from collections import Counter
-
 import numpy as np
 from nltk.lm import NgramCounter
 from nltk.util import ngrams
@@ -139,6 +135,12 @@ def plot_token_frequencies(ds_name, limit_prop, tokens_key='tokens', **kwargs):
 
     for w, count in counts.items():
         counts[w] = log(count)
+
+    plot_frequencies(counts, xlabel="sorted items in log scale",
+                    y_label="frequency in log scale", legend=f"{ds_name} ({int(limit_prop * 100)}%)",
+                    save_name='log_frequency_{ds_name}_{limit_prop}')
+
+def plot_frequencies(counts: dict, xlabel, ylabel, legend, save_name):
     sorted_counts = sorted(counts.values(), reverse=True)
 
     print(f'Num of unique tokens: {len(counts)}')
@@ -146,12 +148,11 @@ def plot_token_frequencies(ds_name, limit_prop, tokens_key='tokens', **kwargs):
     df.index = log(df.index + 1)
 
     fig = df.plot().get_figure()
-    plt.xlabel("sorted items in log scale")
-    plt.ylabel("frequency in log scale")
-    plt.legend([f"{ds_name} ({int(limit_prop * 100)}%)"])
-    fig.savefig(f'nlp/log_frequency_{ds_name}_{limit_prop}.png')
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.legend([legend])
+    fig.savefig(f'nlp/{save_name}.png')
 
-    pickle.dump(sorted_counts, open(f'sorted_log_counts_{ds_name}.pickle', 'wb'))
 
 def get_ngram_counts(ds_name, limit_prop, n=2, tokens_key='tokens', **kwargs):
     ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)['train']
@@ -164,30 +165,34 @@ def get_ngram_counts(ds_name, limit_prop, n=2, tokens_key='tokens', **kwargs):
             break
         n_grams.append(ngrams(s[tokens_key], n))
 
+    del ds
+
     print('Counting n-grams...')
     res = {}
     for a, b_list in tqdm(NgramCounter(n_grams)[n].items()):
         for b, cnt in b_list.items():
             res[(a[0], b)] = cnt
-    sorted_res = sorted(res.items(), key=operator.itemgetter(1), reverse=True)
+
+    del n_grams
+    # sorted_res = sorted(res.items(), key=operator.itemgetter(1), reverse=True)
 
     xs, ys = [], []
-    for (a, b), count in sorted_res:
+    for (a, b), count in res.items():
         xs.append(' '.join((str(a), str(b))))
         ys.append(count)
 
-    with open(f'nlp/{n}_gram_counts_{ds_name}_{limit_prop * 100}%.json', 'w') as f:
-        json.dump(sorted_res, f, indent=2)
-
     print(f'Number of examples used: {limit}')
-    print(f'Number of bigrams: {len(sorted_res)}')
+    print(f'Number of bigrams: {len(res)}')
+
+    del res
+
+    # with open(f'nlp/{n}_gram_counts_{ds_name}_{limit_prop * 100}%.json', 'w') as f:
+    #     json.dump(sorted_res, f, indent=2)
 
     np.savez_compressed(f'nlp/{n}_gram_counts_{ds_name}_{limit_prop * 100}%.npz',
             x=np.array(xs), y=np.array(ys))
 
-    return sorted_res
-
 if __name__== "__main__":
     # plot_frequencies('wikicorpus', limit_prop=0.1, tokens_key='sentence', name='tagged_en')
 
-    wiki_bigrams = get_ngram_counts('wikicorpus', limit_prop=0.1, n=2, tokens_key='sentence', name='tagged_en')
+    wiki_bigrams = get_ngram_counts('wikicorpus', limit_prop=0.05, n=2, tokens_key='sentence', name='tagged_en')
