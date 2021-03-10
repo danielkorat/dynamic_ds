@@ -1,4 +1,5 @@
-import operator
+from http.client import RESET_CONTENT
+from operator import itemgetter
 from os.path import dirname, realpath, isfile
 import pickle
 from collections import defaultdict
@@ -13,9 +14,7 @@ from torchtext.vocab import CharNGram
 from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
-import json
 from tqdm import tqdm
-
 
 import numpy as np
 from nltk.lm import NgramCounter
@@ -103,22 +102,28 @@ class WordCountDataModule(HuggingfaceDataModule):
         return word_count_ds
 
 
-class WikiDataModule(HuggingfaceDataModule):
-    ds_name = "wikicorpus"
-    ds_cache = CACHE_DIR / "wiki.pickle"
-
+class WikiBigramsDataModule(HuggingfaceDataModule):
     def __init__(self, config):
         super().__init__(config)
 
     @staticmethod
-    def download_and_preprocess():
-        conll_dataset = load_dataset(
-            path=WikiDataModule.ds_name, name="tagged_en", cache_dir=CACHE_DIR
-        )
+    def download_and_preprocess(n=2, limit_prop=0.01):
+        save_name = CACHE_DIR / f"{n}_grams_wikicorpus_{limit_prop * 100}%.npz"
+        if isfile(save_name):
+            print("Loading WikiBigramsDataModule from cache...")
+            loaded = np.load(save_name)
+            x, y = loaded['x'], loaded['y']
+        else:
+            VECTORS(cache=VECTORS_DIR)
+            
+            print("Saving WikiBigramsDataModule to cache...")
+            x, y = save_ngram_counts('wikicorpus', limit_prop=limit_prop, n=n, tokens_key='sentence', 
+                name='tagged_en', save_name=save_name)
+        return x, y
 
-def plot_token_frequencies(path):
+
+def plot_frequencies(path, xlabel, ylabel, legend, save_name):
     data = np.load(path)
-    #tokens = data['x']
     counts = data['y']
     counts = np.log(np.flip(np.sort(counts)))
     print(f'Num of unique tokens: {len(counts)}')
@@ -126,12 +131,13 @@ def plot_token_frequencies(path):
     df.index = log(df.index + 1) # no log 0
     ds_name = path.rsplit( ".", 1 )[0].rsplit('/')[-1]
     fig = df.plot().get_figure()
-    plt.xlabel("sorted items in log scale")
-    plt.ylabel("frequency in log scale")
-    plt.legend([f"{ds_name}"])
-    fig.savefig(f'nlp/log_frequency_{ds_name}.png')
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.legend([legend])
+    fig.savefig(f'nlp/log_frequency_{save_name}.png')
 
-def get_ngram_counts(ds_name, limit_prop, n=2, tokens_key='tokens', **kwargs):
+
+def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', **kwargs):
     ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)['train']
     limit = int(limit_prop * len(ds))
 
@@ -141,30 +147,29 @@ def get_ngram_counts(ds_name, limit_prop, n=2, tokens_key='tokens', **kwargs):
         if i == limit:
             break
         n_grams.append(ngrams(s[tokens_key], n))
+    del ds
 
     print('Counting n-grams...')
     res = {}
     for a, b_list in tqdm(NgramCounter(n_grams)[n].items()):
         for b, cnt in b_list.items():
             res[(a[0], b)] = cnt
-    sorted_res = sorted(res.items(), key=operator.itemgetter(1), reverse=True)
 
+    del n_grams
     xs, ys = [], []
-    for (a, b), count in sorted_res:
+    for (a, b), count in sorted(res.items(), key=itemgetter(1), reverse=True):
         xs.append(' '.join((str(a), str(b))))
         ys.append(count)
 
-    with open(f'nlp/{n}_gram_counts_{ds_name}_{limit_prop * 100}%.json', 'w') as f:
-        json.dump(sorted_res, f, indent=2)
-
     print(f'Number of examples used: {limit}')
-    print(f'Number of bigrams: {len(sorted_res)}')
+    print(f'Number of bigrams: {len(res)}')
+    del res
+    x_array, y_array = np.array(xs), np.array(ys)
+    np.savez_compressed(save_name, x=x_array, y=y_array)
+    return x_array, y_array
 
-    np.savez_compressed(f'nlp/{n}_gram_counts_{ds_name}_{limit_prop * 100}%.npz',
-            x=np.array(xs), y=np.array(ys))
-
-    return sorted_res
-
+            
 if __name__== "__main__":
     # plot_frequencies('wikicorpus', limit_prop=0.1, tokens_key='sentence', name='tagged_en')
-    wiki_bigrams = get_ngram_counts('wikicorpus', limit_prop=0.1, n=2, tokens_key='sentence', name='tagged_en')
+
+    print(WikiBigramsDataModule.download_and_preprocess(limit_prop=0.01)[0][0])
