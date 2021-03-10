@@ -108,7 +108,7 @@ class WikiBigramsDataModule(HuggingfaceDataModule):
 
     @staticmethod
     def download_and_preprocess(n=2, limit_prop=0.01):
-        save_name = CACHE_DIR / f"{n}_grams_wikicorpus_{limit_prop * 100}%.npz"
+        save_name = CACHE_DIR / f"{n}_grams_wikicorpus_{limit_prop * 100}%"
         if isfile(save_name):
             print("Loading WikiBigramsDataModule from cache...")
             loaded = np.load(save_name)
@@ -119,22 +119,24 @@ class WikiBigramsDataModule(HuggingfaceDataModule):
             print("Saving WikiBigramsDataModule to cache...")
             x, y = save_ngram_counts('wikicorpus', limit_prop=limit_prop, n=n, tokens_key='sentence', 
                 name='tagged_en', save_name=save_name)
+
+        plot_frequencies(y=y, xlabel='Sorted items in log scale',
+                        ylabel='Frequency in log scale', save_name=save_name)
         return x, y
 
 
-def plot_frequencies(path, xlabel, ylabel, legend, save_name):
-    data = np.load(path)
-    counts = data['y']
-    counts = np.log(np.flip(np.sort(counts)))
+def plot_frequencies(y, xlabel, ylabel, save_name):
+    counts = np.log(np.flip(np.sort(y)))
+    
     print(f'Num of unique tokens: {len(counts)}')
     df = pd.DataFrame(data=counts)
     df.index = log(df.index + 1) # no log 0
-    ds_name = path.rsplit( ".", 1 )[0].rsplit('/')[-1]
+    # ds_name = path.rsplit( ".", 1 )[0].rsplit('/')[-1]
     fig = df.plot().get_figure()
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.legend([legend])
-    fig.savefig(f'nlp/log_frequency_{save_name}.png')
+    plt.legend([save_name])
+    fig.savefig(CACHE_DIR / f'{save_name}.png')
 
 
 def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', **kwargs):
@@ -165,11 +167,9 @@ def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', 
     print(f'Number of bigrams: {len(res)}')
     del res
     x_array, y_array = np.array(xs), np.array(ys)
-    np.savez_compressed(save_name, x=x_array, y=y_array)
+    np.savez_compressed(f'{save_name}.npz', x=x_array, y=y_array)
     return x_array, y_array
 
             
 if __name__== "__main__":
-    # plot_frequencies('wikicorpus', limit_prop=0.1, tokens_key='sentence', name='tagged_en')
-
-    print(WikiBigramsDataModule.download_and_preprocess(limit_prop=0.01)[0][0])
+    WikiBigramsDataModule.download_and_preprocess(limit_prop=0.01)
