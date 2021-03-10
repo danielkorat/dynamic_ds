@@ -1,3 +1,4 @@
+import operator
 from os.path import dirname, realpath, isfile
 import pickle
 from pathlib import Path
@@ -16,9 +17,6 @@ import matplotlib.pyplot as plt
 import json
 from tqdm import tqdm
 
-from sklearn.feature_extraction.text import CountVectorizer
-
-import operator
 from itertools import combinations, chain
 from functools import partial
 from collections import Counter
@@ -27,16 +25,17 @@ import numpy as np
 from nltk.lm import NgramCounter
 from nltk.util import ngrams
 
-CACHE_DIR = Path(dirname(realpath(__file__))) / 'data'
+CACHE_DIR = Path(dirname(realpath(__file__))) / "data"
 VECTORS_DIR = CACHE_DIR / ".vector_cache"
 
 VECTORS = CharNGram
 
+
 class HuggingfaceDataModule(pl.LightningDataModule):
     def __init__(self, config):
         super().__init__()
-        self.batch_size = config['batch_size']
-        self.num_workers = 88 # config['num_workers']
+        self.batch_size = config["batch_size"]
+        self.num_workers = 88  # config['num_workers']
 
     def prepare_data(self):
         # download only
@@ -49,15 +48,19 @@ class HuggingfaceDataModule(pl.LightningDataModule):
 
     def setup(self, stage):
         ds = self.download_and_preprocess()
-
+        self.ds = [i[2] for i in ds]
+        ds = [i[:2] for i in ds]
         # Splits
         split_sizes = [int(len(ds) * 0.7), int(len(ds) * 0.15), int(len(ds) * 0.15)]
         if sum(split_sizes) < len(ds):
             split_sizes[0] += len(ds) - sum(split_sizes)
+
         self.train_dataset, self.val_dataset, self.test_dataset = random_split(ds, split_sizes)
 
     def split_dataloader(self, split):
-        return DataLoader(split, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(
+            split, batch_size=self.batch_size, num_workers=self.num_workers
+        )
 
     def train_dataloader(self):
         return self.split_dataloader(self.train_dataset)
@@ -71,49 +74,51 @@ class HuggingfaceDataModule(pl.LightningDataModule):
 
 class WordCountDataModule(HuggingfaceDataModule):
     ds_name = "conll2003"
-    ds_cache = CACHE_DIR / 'word_count.pickle'
+    ds_cache = CACHE_DIR / "word_count.pickle"
 
     def __init__(self, config):
         super().__init__(config)
 
     @staticmethod
     def download_and_preprocess():
-        if isfile(WordCountDataModule.ds_cache):
-            with open(WordCountDataModule.ds_cache, 'rb') as ds_pickle:
+        if isfile(WordCountDataModule.ds_cache) and False:
+            with open(WordCountDataModule.ds_cache, "rb") as ds_pickle:
                 word_count_ds = pickle.load(ds_pickle)
 
         else:
-            conll_dataset = load_dataset(path=WordCountDataModule.ds_name,
-                cache_dir=CACHE_DIR)
+            conll_dataset = load_dataset(
+                path=WordCountDataModule.ds_name, cache_dir=CACHE_DIR
+            )
             embedder = VECTORS(cache=VECTORS_DIR)
 
             counts = defaultdict(int)
-            for split in 'train', 'test', 'validation':
+            for split in "train", "test", "validation":
                 for example in conll_dataset[split]:
-                    for token in example['tokens']:
+                    for token in example["tokens"]:
                         counts[token.lower()] += 1
             word_count_ds = []
             for t, c in counts.items():
-                word_count_ds.append((embedder[t].float(), torch.tensor([log(c)], dtype=torch.float)))
+                word_count_ds.append(
+                    (embedder[t].float(), torch.tensor([log(c)], dtype=torch.float), t)
+                )
 
-            with open(WordCountDataModule.ds_cache, 'wb') as ds_pickle:
+            with open(WordCountDataModule.ds_cache, "wb") as ds_pickle:
                 pickle.dump(word_count_ds, ds_pickle)
         return word_count_ds
 
 
-
-
 class WikiDataModule(HuggingfaceDataModule):
     ds_name = "wikicorpus"
-    ds_cache = CACHE_DIR / 'wiki.pickle'
+    ds_cache = CACHE_DIR / "wiki.pickle"
 
     def __init__(self, config):
         super().__init__(config)
 
     @staticmethod
     def download_and_preprocess():
-        conll_dataset = load_dataset(path=WikiDataModule.ds_name, name='tagged_en',
-            cache_dir=CACHE_DIR)
+        conll_dataset = load_dataset(
+            path=WikiDataModule.ds_name, name="tagged_en", cache_dir=CACHE_DIR
+        )
 
 
 def plot_token_frequencies(ds_name, limit_prop, tokens_key='tokens', **kwargs):
@@ -163,7 +168,7 @@ def get_ngram_counts(ds_name, limit_prop, n=2, tokens_key='tokens', **kwargs):
     res = {}
     for a, b_list in tqdm(NgramCounter(n_grams)[n].items()):
         for b, cnt in b_list.items():
-            res[(a[0], b)] = cnt 
+            res[(a[0], b)] = cnt
     sorted_res = sorted(res.items(), key=operator.itemgetter(1), reverse=True)
 
     xs, ys = [], []

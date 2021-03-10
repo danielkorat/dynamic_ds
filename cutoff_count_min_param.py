@@ -6,6 +6,8 @@ import numpy as np
 from itertools import repeat
 
 from multiprocessing import Pool
+
+from utils.conll_utils import get_data_conll_query
 from utils.utils import get_stat, git_log, get_data_str_with_ports_list
 from utils.aol_utils import get_data_aol_query_list
 from sketch import cutoff_countmin, cutoff_lookup, cutoff_countmin_wscore, order_y_wkey_list
@@ -80,7 +82,7 @@ if __name__ == '__main__':
     argparser.add_argument("--n_hashes_list", type=int, nargs='*', help="number of hashes", required=True)
     argparser.add_argument("--perfect_order", action='store_true', default=False)
     argparser.add_argument("--n_workers", type=int, help="number of workers", default=10)
-    argparser.add_argument("--aol_data", action='store_true', default=False)
+    argparser.add_argument("--data_name", default="aol", choices=["aol", "ip", "conll"])
     argparser.add_argument("--count_sketch", action='store_true', default=False)
     args = argparser.parse_args()
 
@@ -109,9 +111,12 @@ if __name__ == '__main__':
         os.makedirs(folder)
 
     start_t = time.time()
-    if args.aol_data:
+    if args.data_name =='aol':
         x_valid, y_valid = get_data_aol_query_list(args.valid_data)
         x_test, y_test = get_data_aol_query_list(args.test_data)
+    elif args.data_name == 'conll':
+        x_valid, y_valid = get_data_conll_query(args.valid_data[0])
+        x_test, y_test = get_data_conll_query(args.test_data[0])
     else:
         x_valid, y_valid = get_data_str_with_ports_list(args.valid_data)
         x_test, y_test = get_data_str_with_ports_list(args.test_data)
@@ -119,8 +124,10 @@ if __name__ == '__main__':
     log_str += get_stat('test data:\n' + '\n'.join(args.test_data), x_test, y_test)
 
     if args.lookup_data:
-        if args.aol_data:
+        if args.data_name== 'aol':
             x_train, y_train = get_data_aol_query_list(args.lookup_data)
+        elif args.data_name == 'conll':
+            x_train, y_train = get_data_conll_query(args.lookup_data[0])
         else:
             x_train, y_train = get_data_str_with_ports_list(args.lookup_data)
         log_str += get_stat('lookup data:\n' + '\n'.join(args.lookup_data), x_train, y_train)

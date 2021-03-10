@@ -29,13 +29,13 @@ class WordCountPredictor(pl.LightningModule):
     def __init__(self, config):
         super().__init__()
         self.save_hyperparameters()
-        self.lr = config['learning_rate']
+        self.lr = config["learning_rate"]
         self.criterion = nn.MSELoss()
-        self.embed_size = 100 # CharNGram embed size
+        self.embed_size = 100  # CharNGram embed size
 
-        self.l1 = nn.Linear(self.embed_size, config['hidden_dim'])
-        self.dropout = nn.Dropout(p=config['dropout_prob'])
-        self.l2 = nn.Linear(config['hidden_dim'], 1)
+        self.l1 = nn.Linear(self.embed_size, config["hidden_dim"])
+        self.dropout = nn.Dropout(p=config["dropout_prob"])
+        self.l2 = nn.Linear(config["hidden_dim"], 1)
 
     def forward(self, x):
         x = x.view(x.size(0), -1)
@@ -48,41 +48,57 @@ class WordCountPredictor(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
-        self.log('ptl/train_loss', loss)
+        self.log("ptl/train_loss", loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
-        self.log('ptl/val_loss', loss)
+        self.log("ptl/val_loss", loss)
         return loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
-        self.log('ptl/test_loss', loss)
+        self.log("ptl/test_loss", loss)
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
 
-def predict(model, dl):
-    output = []
-    for item in dl:
-        output.append(model(item[0]).cpu().detach().numpy().flatten())
-    return output
+def predict(model, dm, dl):
+
+    Y_pred = []
+    Y = []
+    X = []
+    for i, item in enumerate(dl):
+        y = item[1][0]
+        Y.append(y)
+        original_x = dm.ds[dl.indices[i]]
+        X.append(original_x)
+
+        x_to_pred = item[0]
+        Y_pred.append(model(x_to_pred).cpu().detach().numpy().flatten()[0])
+
+    Y = np.round(np.exp(Y)).astype(int)
+    Y_pred = np.round(np.exp(Y_pred)).astype(int)
+    return X, Y, Y_pred
+
+
+def dump(input, output, name):
+    np.savez(name, x=input, y=output)
 
 
 def cli_main():
     pl.seed_everything(1234)
 
     config = {
-        'hidden_dim': 128,
-        'learning_rate': 1e-3,
-        'batch_size': 32,
-        'dropout_prob': 0.0
+        "hidden_dim": 128,
+        "learning_rate": 1e-3,
+        "batch_size": 32,
+        "dropout_prob": 0.0,
     }
 
     datamodule = WordCountDataModule(config)
@@ -95,7 +111,7 @@ def cli_main():
     trainer_args = {
         # 'gpus': 4,
         # 'accelerator': 'ddp',
-        'max_epochs': 3,
+        "max_epochs": 3,
     }
     trainer = pl.Trainer(**trainer_args)
     trainer.fit(model, datamodule=datamodule)
@@ -109,18 +125,31 @@ def cli_main():
     pprint(test_loss)
 
     with torch.no_grad():
-        test_output = predict(model, datamodule.test_dataloader())
-        valid_output = predict(model, datamodule.val_dataloader())
-        train_output = predict(model, datamodule.train_dataloader())
-    filename =f'results.npz'
+        test_input, test_true, test_output = predict(
+            model, datamodule, datamodule.test_dataset
+        )
+        valid_input, valid_true, valid_output = predict(
+            model, datamodule, datamodule.val_dataset
+        )
+        train_input, train_true, train_output = predict(
+            model, datamodule, datamodule.train_dataset
+        )
 
-    np.savez(filename,
-             train_output=train_output,
-             valid_output=valid_output,
-             test_output=test_output,
-             test_loss=test_loss,
-             )
+    dump(test_input, test_true, f"true_{datamodule.ds_name}_test.npz")
+    dump(valid_input, valid_true, f"true_{datamodule.ds_name}_valid.npz")
+    dump(train_input, train_true, f"true_{datamodule.ds_name}_train.npz")
+
+    filename = f"pred_{datamodule.ds_name}.npz"
+    np.savez(
+        filename,
+        test_input=test_input,
+        valid_input=valid_input,
+        train_output=train_output,
+        valid_output=valid_output,
+        test_output=test_output,
+        test_loss=test_loss,
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli_main()
