@@ -1,7 +1,6 @@
 import operator
 from os.path import dirname, realpath, isfile
 import pickle
-from pathlib import Path
 from collections import defaultdict
 from abc import abstractmethod
 
@@ -77,7 +76,7 @@ class WordCountDataModule(HuggingfaceDataModule):
 
     @staticmethod
     def download_and_preprocess():
-        if isfile(WordCountDataModule.ds_cache) and False:
+        if isfile(WordCountDataModule.ds_cache):
             with open(WordCountDataModule.ds_cache, "rb") as ds_pickle:
                 word_count_ds = pickle.load(ds_pickle)
 
@@ -117,42 +116,43 @@ class WikiDataModule(HuggingfaceDataModule):
         )
 
 
-def plot_token_frequencies(ds_name, limit_prop, tokens_key='tokens', **kwargs):
-    counts = defaultdict(int)
-    ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)
-    stop_counter = 0
-    examples = ds['train']
-    limit = int(limit_prop * len(examples))
-    print(f'Num of examples used: {limit}')
+# def plot_token_frequencies(ds_name, limit_prop, tokens_key='tokens', **kwargs):
+#     counts = defaultdict(int)
+#     ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)
+#     stop_counter = 0
+#     examples = ds['train']
+#     limit = int(limit_prop * len(examples))
+#     print(f'Num of examples used: {limit}')
 
-    for example in tqdm(examples, total=limit):
-        if stop_counter == limit:
-            break
-        stop_counter += 1
+#     for example in tqdm(examples, total=limit):
+#         if stop_counter == limit:
+#             break
+#         stop_counter += 1
 
-        for token in example[tokens_key]:
-            counts[token.lower()] += 1
+#         for token in example[tokens_key]:
+#             counts[token.lower()] += 1
 
-    for w, count in counts.items():
-        counts[w] = log(count)
+#     for w, count in counts.items():
+#         counts[w] = log(count)
 
-    plot_frequencies(counts, xlabel="sorted items in log scale",
-                    y_label="frequency in log scale", legend=f"{ds_name} ({int(limit_prop * 100)}%)",
-                    save_name='log_frequency_{ds_name}_{limit_prop}')
+#     plot_frequencies(counts, xlabel="sorted items in log scale",
+#                     y_label="frequency in log scale", legend=f"{ds_name} ({int(limit_prop * 100)}%)",
+#                     save_name='log_frequency_{ds_name}_{limit_prop}')
 
-def plot_frequencies(counts: dict, xlabel, ylabel, legend, save_name):
-    sorted_counts = sorted(counts.values(), reverse=True)
 
+def plot_frequencies(path, xlabel, ylabel, legend, save_name):
+    data = np.load(path)
+    counts = data['y']
+    counts = np.log(np.flip(np.sort(counts)))
     print(f'Num of unique tokens: {len(counts)}')
-    df = pd.DataFrame(data=sorted_counts)
-    df.index = log(df.index + 1)
-
+    df = pd.DataFrame(data=counts)
+    df.index = log(df.index + 1) # no log 0
+    ds_name = path.rsplit( ".", 1 )[0].rsplit('/')[-1]
     fig = df.plot().get_figure()
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.legend([legend])
-    fig.savefig(f'nlp/{save_name}.png')
-
+    fig.savefig(f'nlp/log_frequency_{save_name}.png')
 
 def get_ngram_counts(ds_name, limit_prop, n=2, tokens_key='tokens', **kwargs):
     ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)['train']

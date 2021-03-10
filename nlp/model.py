@@ -21,7 +21,7 @@ from torch import nn
 
 import pytorch_lightning as pl
 
-from data import WordCountDataModule
+from nlp.data import WordCountDataModule
 import numpy as np
 
 
@@ -91,7 +91,7 @@ def dump(input, output, name):
     np.savez(name, x=input, y=output)
 
 
-def cli_main():
+def train_simple_model(ds_name):
     pl.seed_everything(1234)
 
     config = {
@@ -101,7 +101,11 @@ def cli_main():
         "dropout_prob": 0.0,
     }
 
-    datamodule = WordCountDataModule(config)
+    if ds_name =='conll2003':
+        datamodule = WordCountDataModule(config)
+    else:
+        datamodule = WordCountDataModule(config) #TODO Daniel what should go here?
+
     model = WordCountPredictor(config)
 
     # ------------
@@ -135,11 +139,18 @@ def cli_main():
             model, datamodule, datamodule.train_dataset
         )
 
-    dump(test_input, test_true, f"true_{datamodule.ds_name}_test.npz")
-    dump(valid_input, valid_true, f"true_{datamodule.ds_name}_valid.npz")
-    dump(train_input, train_true, f"true_{datamodule.ds_name}_train.npz")
+    paths = [f"true_{datamodule.ds_name}_test.npz",
+             f"true_{datamodule.ds_name}_valid.npz",
+             f"true_{datamodule.ds_name}_train.npz"]
+    print(f"dumping test train and validation to:\n{' '.join(paths)}")
+
+    dump(test_input, test_true, paths[0])
+    dump(valid_input, valid_true, paths[1])
+    dump(train_input, train_true, paths[2])
 
     filename = f"pred_{datamodule.ds_name}.npz"
+    print(f"dumping test train and validation predictions to:\n{filename}")
+
     np.savez(
         filename,
         test_input=test_input,
@@ -152,4 +163,4 @@ def cli_main():
 
 
 if __name__ == "__main__":
-    cli_main()
+    train_simple_model('conll2003')
