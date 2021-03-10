@@ -173,4 +173,4 @@ def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', 
 
             
 if __name__== "__main__":
-    WikiBigramsDataModule.download_and_preprocess(limit_prop=0.01)
+    WikiBigramsDataModule.download_and_preprocess(limit_prop=0.001)
