@@ -21,7 +21,7 @@ from torch import nn
 
 import pytorch_lightning as pl
 
-from nlp.data import WordCountDataModule
+from nlp.data import WordCountDataModule, WikiDataModule
 import numpy as np
 
 
@@ -103,8 +103,11 @@ def train_simple_model(ds_name):
 
     if ds_name =='conll2003':
         datamodule = WordCountDataModule(config)
+    elif ds_name =='wikicorpus':
+        datamodule = WikiDataModule(config)
     else:
-        datamodule = WordCountDataModule(config) #TODO Daniel what should go here?
+        raise AssertionError(f'no dataset called {ds_name}')
+
 
     model = WordCountPredictor(config)
 

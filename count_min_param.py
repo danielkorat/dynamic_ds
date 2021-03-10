@@ -52,7 +52,7 @@ class CountMinEvaluation:
         if args.data_name == "aol":
             assert len(args.data) == 1
             x, y = get_data_aol_query(args.data[0])
-        elif args.data_name == "conll":
+        elif args.data_name in ["conll", "wikicorpus"]:
             if isinstance(args.data, list) and len(args.data)==1:
                 args.data = args.data[0]
             x, y = get_data_conll_query(args.data)
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     argparser.add_argument(
         "--n_workers", type=int, help="number of workers", default=10
     )
-    argparser.add_argument("--data_name", default="aol", choices=["aol", "ip", "conll"])
+    argparser.add_argument("--data_name", default="aol", choices=["aol", "ip", "conll", "wikicorpus"])
     argparser.add_argument("--count_sketch", action="store_true", default=False)
     args = argparser.parse_args()
     cme = CountMinEvaluation.from_args(args)
