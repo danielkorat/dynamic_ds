@@ -20,6 +20,8 @@ from itertools import combinations, chain
 from functools import partial
 from collections import Counter
 
+from nltk.lm import NgramCounter
+from nltk.util import ngrams
 
 CACHE_DIR = Path(dirname(realpath(__file__))) / "data"
 VECTORS_DIR = CACHE_DIR / ".vector_cache"
@@ -117,58 +119,64 @@ class WikiDataModule(HuggingfaceDataModule):
         )
 
 
-def count_bigrams_in_window(ds, window_size=7):
-    counts = defaultdict(int)
-    for split in "train", "test", "validation":
-        for example in tqdm(ds[split]):
-            tokens = example["tokens"]
-            for i in range(len(tokens)):
-                window = tokens[i : i + window_size]
-                # window = remove_stop_words(window)
-                window = map(str.lower, window)
-                for bigram in combinations(tokens, r=2):
-                    counts[bigram] += 1
-
-
-def f(s):
-    tokens = s.split()
-    return Counter(
-        chain.from_iterable(
-            map(partial(combinations, r=2), zip(tokens, tokens[1:], tokens[2:]))
-        )
-    )
-
-
-def plot_frequencies(
-    ds_name, splits=("train", "test", "validation"), tokens_key="tokens", **kwargs
-):
+def plot_token_frequencies(ds_name, limit_prop, tokens_key='tokens', **kwargs):
     counts = defaultdict(int)
     ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)
-    for split in splits:
-        for example in tqdm(ds[split]):
-            for token in example[tokens_key]:
-                counts[token.lower()] += 1
+    stop_counter = 0
+    examples = ds['train']
+    limit = int(limit_prop * len(examples))
+    print(f'Num of examples used: {limit}')
 
-    log_counts = defaultdict(int)
+    for example in tqdm(examples, total=limit):
+        if stop_counter == limit:
+            break
+        stop_counter += 1
+
+        for token in example[tokens_key]:
+            counts[token.lower()] += 1
+
     for w, count in counts.items():
-        log_counts[w] = log(count)
-    sorted_log_counts = sorted(log_counts.values(), reverse=True)
+        counts[w] = log(count)
+    sorted_counts = sorted(counts.values(), reverse=True)
 
-    # sorted_counts = sorted(counts.values(), reverse=True)
-    df = pd.DataFrame(data=sorted_log_counts)
-    df.index = df.index
+    print(f'Num of unique tokens: {len(counts)}')
+    df = pd.DataFrame(data=sorted_counts)
+    df.index = log(df.index + 1)
 
     fig = df.plot().get_figure()
     plt.xlabel("sorted items in log scale")
     plt.ylabel("frequency in log scale")
-    plt.legend(["wino_bias"])
-    fig.savefig(f"nlp/log_frequency_{ds_name}.png")
+    plt.legend([f"{ds_name} ({int(limit_prop * 100)}%)"])
+    fig.savefig(f'nlp/log_frequency_{ds_name}_{limit_prop}.png')
 
+    pickle.dump(sorted_counts, open(f'sorted_log_counts_{ds_name}.pickle', 'wb'))
 
-if __name__ == "__main__":
-    # ds = WikiDataModule.download_and_preprocess()
+def get_ngram_counts(ds_name, limit_prop, n=2, tokens_key='tokens', **kwargs):
+    ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)['train']
+    limit = int(limit_prop * len(ds))
 
-    # load_dataset(path='wino_bias', cache_dir=CACHE_DIR)
-    plot_frequencies(
-        "wikicorpus", splits=("train",), tokens_key="sentence", name="tagged_en"
-    )
+    print('Computing n-grams...')
+    n_grams = []
+    for i, s in tqdm(enumerate(ds), total=limit):
+        if i == limit:
+            break
+        n_grams.append(ngrams(s[tokens_key], n))
+
+    print('Counting n-grams...')
+    res = {}
+    for a, b_list in tqdm(NgramCounter(n_grams)[n].items()):
+        for b, cnt in b_list.items():
+            res[(a[0], b)] = cnt
+    sorted_res = sorted(res.items(), key=operator.itemgetter(1), reverse=True)
+
+    with open(f'nlp/{n}_gram_counts_{ds_name}_{limit_prop * 100}%.json', 'w') as f:
+        json.dump(sorted_res, f, indent=2)
+
+    print(f'Number of examples used: {limit}')
+    print(f'Number of bigrams: {len(sorted_res)}')
+    return sorted_res
+
+if __name__== "__main__":
+    # plot_frequencies('wikicorpus', limit_prop=0.1, tokens_key='sentence', name='tagged_en')
+
+    wiki_bigrams = get_ngram_counts('wikicorpus', limit_prop=0.1, n=2, tokens_key='sentence', name='tagged_en')
