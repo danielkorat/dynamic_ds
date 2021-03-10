@@ -77,7 +77,7 @@ class WordCountDataModule(HuggingfaceDataModule):
 
     @staticmethod
     def download_and_preprocess():
-        if isfile(WordCountDataModule.ds_cache) and False:
+        if isfile(WordCountDataModule.ds_cache):
             with open(WordCountDataModule.ds_cache, "rb") as ds_pickle:
                 word_count_ds = pickle.load(ds_pickle)
 
