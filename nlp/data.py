@@ -1,7 +1,6 @@
 import operator
 from os.path import dirname, realpath, isfile
 import pickle
-from pathlib import Path
 from collections import defaultdict
 from abc import abstractmethod
 
@@ -17,9 +16,6 @@ import matplotlib.pyplot as plt
 import json
 from tqdm import tqdm
 
-from itertools import combinations, chain
-from functools import partial
-from collections import Counter
 
 import numpy as np
 from nltk.lm import NgramCounter
@@ -120,38 +116,20 @@ class WikiDataModule(HuggingfaceDataModule):
             path=WikiDataModule.ds_name, name="tagged_en", cache_dir=CACHE_DIR
         )
 
-
-def plot_token_frequencies(ds_name, limit_prop, tokens_key='tokens', **kwargs):
-    counts = defaultdict(int)
-    ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)
-    stop_counter = 0
-    examples = ds['train']
-    limit = int(limit_prop * len(examples))
-    print(f'Num of examples used: {limit}')
-
-    for example in tqdm(examples, total=limit):
-        if stop_counter == limit:
-            break
-        stop_counter += 1
-
-        for token in example[tokens_key]:
-            counts[token.lower()] += 1
-
-    for w, count in counts.items():
-        counts[w] = log(count)
-    sorted_counts = sorted(counts.values(), reverse=True)
-
+def plot_token_frequencies(path):
+    data = np.load(path)
+    #tokens = data['x']
+    counts = data['y']
+    counts = np.log(np.flip(np.sort(counts)))
     print(f'Num of unique tokens: {len(counts)}')
-    df = pd.DataFrame(data=sorted_counts)
-    df.index = log(df.index + 1)
-
+    df = pd.DataFrame(data=counts)
+    df.index = log(df.index + 1) # no log 0
+    ds_name = path.rsplit( ".", 1 )[0].rsplit('/')[-1]
     fig = df.plot().get_figure()
     plt.xlabel("sorted items in log scale")
     plt.ylabel("frequency in log scale")
-    plt.legend([f"{ds_name} ({int(limit_prop * 100)}%)"])
-    fig.savefig(f'nlp/log_frequency_{ds_name}_{limit_prop}.png')
-
-    pickle.dump(sorted_counts, open(f'sorted_log_counts_{ds_name}.pickle', 'wb'))
+    plt.legend([f"{ds_name}"])
+    fig.savefig(f'nlp/log_frequency_{ds_name}.png')
 
 def get_ngram_counts(ds_name, limit_prop, n=2, tokens_key='tokens', **kwargs):
     ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)['train']
@@ -189,5 +167,4 @@ def get_ngram_counts(ds_name, limit_prop, n=2, tokens_key='tokens', **kwargs):
 
 if __name__== "__main__":
     # plot_frequencies('wikicorpus', limit_prop=0.1, tokens_key='sentence', name='tagged_en')
-
     wiki_bigrams = get_ngram_counts('wikicorpus', limit_prop=0.1, n=2, tokens_key='sentence', name='tagged_en')
