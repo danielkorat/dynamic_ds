@@ -31,7 +31,7 @@ class WordCountPredictor(pl.LightningModule):
         self.save_hyperparameters()
         self.lr = config["learning_rate"]
         self.criterion = nn.MSELoss()
-        self.embed_size = 100  # CharNGram embed size
+        self.embed_size = 200  # CharNGram embed size
 
         self.l1 = nn.Linear(self.embed_size, config["hidden_dim"])
         self.dropout = nn.Dropout(p=config["dropout_prob"])

@@ -1,9 +1,11 @@
 from http.client import RESET_CONTENT
+from itertools import combinations
 from operator import itemgetter
 from os.path import dirname, realpath, isfile
 import pickle
 from collections import defaultdict
 from abc import abstractmethod
+from threading import current_thread
 
 import torch
 from sklearn.metrics import roc_auc_score, roc_curve
@@ -26,6 +28,8 @@ VECTORS_DIR = CACHE_DIR / ".vector_cache"
 
 VECTORS = CharNGram
 
+from spacy.lang.en import English
+from string import punctuation as punct
 
 class HuggingfaceDataModule(pl.LightningDataModule):
     def __init__(self, config):
@@ -111,40 +115,44 @@ class WikiBigramsDataModule(HuggingfaceDataModule):
     def download_and_preprocess(n=2, limit_prop=0.01):
         save_name = f"{n}_grams_wikicorpus_{limit_prop * 100}%"
         np_cache_file = CACHE_DIR / f"{save_name}.npz"
-        cache_file = CACHE_DIR / f"{save_name}.pickle"
-        if isfile(np_cache_file) and isfile(cache_file):
+        features_cache = CACHE_DIR / f'{save_name}_features.npz'
+        if isfile(np_cache_file) and isfile(features_cache):
             print("Loading WikiBigramsDataModule from cache...")
             loaded = np.load(np_cache_file)
             x, y = loaded['x'], loaded['y']
-            with open(cache_file, "rb") as ds_pickle:
-                bigram_count_ds = pickle.load(ds_pickle)
+
+            loaded = np.load(features_cache)
+            counts_arr, embeds_arr, bigrams_arr = loaded['counts'], loaded['embeds'], loaded['bigrams']
+
         else:
             embedder = VECTORS(cache=VECTORS_DIR)
             print("Saving WikiBigramsDataModule to cache...")
             x, y = save_ngram_counts('wikicorpus', limit_prop=limit_prop, n=n, tokens_key='sentence', 
                 name='tagged_en', save_name=save_name)
 
-            bigram_count_ds = []
+            counts, embeds = [], []
             for bigram, count in zip(x, y):
-                a, b = bigram.split(' ')
-                bigram_embed = torch.cat((embedder[a], embedder[b]), dim=1)
-
-                bigram_count_ds.append(
-                    (bigram_embed, torch.tensor([log(count)], dtype=torch.float32), bigram)
-                )
-
-            with open(cache_file, "wb") as ds_pickle:
-                pickle.dump(bigram_count_ds, ds_pickle)
+                bigram_embed = embedder[bigram].cpu().detach().numpy().flatten()
+                embeds.append(bigram_embed)
+                counts.append(log([count]))
+            
+            counts_arr, embeds_arr, bigrams_arr = np.array(counts), np.array(embeds), x
+            np.savez_compressed(features_cache,
+                    counts=counts_arr, embeds=embeds_arr, bigrams=x)
+        
+        bigram_count_ds = []
+        for count, embed, bigram in zip(counts_arr, embeds_arr, bigrams_arr):
+            bigram_count_ds.append((torch.tensor(embed, dtype=torch.float),
+                torch.tensor(count, dtype=torch.float), bigram))
 
         plot_frequencies(y=y, xlabel='Sorted items in log scale',
                         ylabel='Frequency in log scale', save_name=save_name)
-        return x, y, bigram_count_ds
 
+        return x, y, bigram_count_ds
 
 def plot_frequencies(y, xlabel, ylabel, save_name):
     counts = np.log(np.flip(np.sort(y)))
     
-    print(f'Num of unique tokens: {len(counts)}')
     df = pd.DataFrame(data=counts)
     df.index = log(df.index + 1) # no log 0
     # ds_name = path.rsplit( ".", 1 )[0].rsplit('/')[-1]
@@ -195,16 +203,33 @@ def plot_roc(pred_data_path, true_data_path,dump_path, predictions_key='test_out
     plt.show()
     plt.savefig(dump_path)
 
+def clean(toks: list, nlp):
+    res_texts, cur_text = [], []
+    for t in toks:
+        if nlp.vocab[t].is_stop or any(c in punct for c in t):
+            if cur_text:
+                res_texts.append(cur_text)
+                cur_text = []
+        else:
+            cur_text.append(t.lower())
+            
+    return res_texts
+
+
 def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', **kwargs):
     ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)['train']
     limit = int(limit_prop * len(ds))
 
     print('Computing n-grams...')
     n_grams = []
+    nlp = English()
     for i, s in tqdm(enumerate(ds), total=limit):
         if i == limit:
             break
-        n_grams.append(ngrams(s[tokens_key], n))
+        tokens = s[tokens_key]
+        cleaned_texts = clean(tokens, nlp)
+        for clean_text in cleaned_texts:
+            n_grams.append(ngrams(clean_text, n))
     del ds
 
     print('Counting n-grams...')
@@ -212,7 +237,6 @@ def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', 
     for a, b_list in tqdm(NgramCounter(n_grams)[n].items()):
         for b, cnt in b_list.items():
             res[(a[0], b)] = cnt
-
 
     del n_grams
     xs, ys = [], []
@@ -230,13 +254,3 @@ def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', 
             
 if __name__== "__main__":
     WikiBigramsDataModule.download_and_preprocess(limit_prop=0.001)
-
-    # from spacy.lang.en import English
-    # nlp = English()
-    # filtered_sentence = [] 
-    # s = 'This is a sentence for which I have no use .'.split()
-    # filtered_s = [w for w in s if not nlp.vocab[w].is_stop]
-    # print(f'Sentence: {s}')
-    # print(f'Sentence w/o stop-words: {filtered_s}')
-    # >> Sentence: ['This', 'is', 'a', 'sentence', 'for', 'which', 'I', 'have', 'no', 'use', '.']
-    # >> Sentence w/o stop-words: ['sentence', 'use', '.']
