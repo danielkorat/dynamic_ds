@@ -21,7 +21,7 @@ from torch import nn
 
 import pytorch_lightning as pl
 
-from data import WordCountDataModule, WikiBigramsDataModule
+from nlp.dataset import WordCountDataModule, WikiBigramsDataModule
 import numpy as np
 
 
@@ -79,7 +79,7 @@ def predict(model, dm, dl):
         original_x = dm.ds[dl.indices[i]]
         X.append(original_x)
 
-        x_to_pred = item[0]
+        x_to_pred = item[0].reshape(-1, 100)
         Y_pred.append(model(x_to_pred).cpu().detach().numpy().flatten()[0])
 
     Y = np.round(np.exp(Y)).astype(int)
