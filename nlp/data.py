@@ -173,4 +173,14 @@ def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', 
 
             
 if __name__== "__main__":
-    WikiBigramsDataModule.download_and_preprocess(limit_prop=0.001)
+    # WikiBigramsDataModule.download_and_preprocess(limit_prop=0.001)
+
+    from spacy.lang.en import English
+    nlp = English()
+    filtered_sentence = [] 
+    s = 'This is a sentence for which I have no use .'.split()
+    filtered_s = [w for w in s if not nlp.vocab[w].is_stop]
+    print(f'Sentence: {s}')
+    print(f'Sentence w/o stop-words: {filtered_s}')
+    # >> Sentence: ['This', 'is', 'a', 'sentence', 'for', 'which', 'I', 'have', 'no', 'use', '.']
+    # >> Sentence w/o stop-words: ['sentence', 'use', '.']
