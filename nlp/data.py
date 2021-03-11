@@ -6,6 +6,7 @@ from collections import defaultdict
 from abc import abstractmethod
 
 import torch
+from sklearn.metrics import roc_auc_score, roc_curve
 from torch.utils.data import DataLoader, random_split
 import pytorch_lightning as pl
 from datasets import load_dataset
@@ -139,6 +140,46 @@ def plot_frequencies(y, xlabel, ylabel, save_name):
     plt.legend([save_name])
     fig.savefig(CACHE_DIR / f'{save_name}.png')
 
+
+def plot_roc(pred_data_path, true_data_path,dump_path, predictions_key='test_output',
+             hh_fraction=0.01):
+    # plotting predictions for <percentile>-heavy hitter
+
+    predictions = np.load(pred_data_path)
+    true_data = np.load(true_data_path)
+
+    # print((predictions['test_input'] == true_data['x']).all()) # make sure test equals :)
+
+    y_pred_scores = predictions[predictions_key]
+    y_true_scores = true_data['y']
+
+    threshold = np.flip(np.sort(y_true_scores))[
+        int(y_true_scores.size * hh_fraction)]
+
+    y_true = np.zeros_like(y_true_scores)
+    y_true[y_true_scores >= threshold] = 1
+
+    ns_scores = [0] * len(y_true)
+
+    ns_auc = roc_auc_score(y_true, ns_scores)
+    lr_auc = roc_auc_score(y_true, y_pred_scores)
+
+    print('No Skill: ROC AUC=%.2f' % (ns_auc))
+    print('Learned: ROC AUC=%.2f' % (lr_auc))
+
+    fpr, tpr, _ = roc_curve(y_true, y_pred_scores)
+    ns_fpr, ns_tpr, _ = roc_curve(y_true, ns_scores)
+
+    plt.plot(fpr, tpr, marker='.', label=f'Learned model- AUC={lr_auc:.2f}')
+    plt.plot(ns_fpr, ns_tpr, marker='.')
+
+    plt.title(f'roc curve for {hh_fraction}-heavy hitters model')
+    plt.legend()
+
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.show()
+    plt.savefig(dump_path)
 
 def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', **kwargs):
     ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)['train']
