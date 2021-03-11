@@ -26,7 +26,7 @@ def train_word_count_tune(config, checkpoint_dir=None, num_epochs=10, num_gpus=0
         callbacks=[
             TuneReportCallback(
                 {
-                    "loss": "ptl/val_loss",
+                    "loss": "val_loss",
                 },
                 on="validation_end")
         ])
@@ -48,7 +48,7 @@ def train_word_count_tune_checkpoint(config,
         callbacks=[
             TuneReportCheckpointCallback(
                 metrics={
-                    "loss": "ptl/val_loss",
+                    "loss": "val_loss",
                 },
                 filename="checkpoint",
                 on="validation_end")

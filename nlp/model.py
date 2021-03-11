@@ -21,7 +21,7 @@ from torch import nn
 
 import pytorch_lightning as pl
 
-from nlp.dataset import WordCountDataModule, WikiBigramsDataModule
+from dataset import WordCountDataModule, WikiBigramsDataModule, plot_roc
 import numpy as np
 
 
@@ -48,28 +48,27 @@ class WordCountPredictor(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
-        self.log("ptl/train_loss", loss)
+        self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
-        self.log("ptl/val_loss", loss)
+        self.log("val_loss", loss)
         return loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
-        self.log("ptl/test_loss", loss)
+        self.log("test_loss", loss)
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
 
 def predict(model, dm, dl):
-
     Y_pred = []
     Y = []
     X = []
@@ -79,7 +78,7 @@ def predict(model, dm, dl):
         original_x = dm.ds[dl.indices[i]]
         X.append(original_x)
 
-        x_to_pred = item[0].reshape(-1, 100)
+        x_to_pred = item[0].reshape(-1, 100).to(model.device)
         Y_pred.append(model(x_to_pred).cpu().detach().numpy().flatten()[0])
 
     Y = np.round(np.exp(Y)).astype(int)
@@ -108,28 +107,23 @@ def train_simple_model(ds_name):
     else:
         raise AssertionError(f'no dataset called {ds_name}')
 
-
     model = WordCountPredictor(config)
-
     # ------------
     # training
     # ------------
-
     trainer_args = {
-        # 'gpus': 4,
-        # 'accelerator': 'ddp',
-        "max_epochs": 10,
+        'gpus': 4,
+        'accelerator': 'ddp',
+        "max_epochs": 50,
     }
     trainer = pl.Trainer(**trainer_args)
     trainer.fit(model, datamodule=datamodule)
-
     # ------------
     # testing
     # ------------
     # todo: without passing model it fails for missing best weights
     # MisconfigurationException, 'ckpt_path is "best", but ModelCheckpoint is not configured to save the best model.'
     test_loss = trainer.test(model, datamodule=datamodule)
-    pprint(test_loss)
 
     with torch.no_grad():
         test_input, test_true, test_output = predict(
@@ -164,6 +158,7 @@ def train_simple_model(ds_name):
         test_loss=test_loss,
     )
 
-
 if __name__ == "__main__":
     train_simple_model('wikicorpus')
+
+    # plot_roc('./pred_wikicorpus.npz', './true_wikicorpus_test.npz', 'wikicorpus_roc.png', 'test_output', 0.01)

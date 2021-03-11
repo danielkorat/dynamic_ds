@@ -35,7 +35,7 @@ class HuggingfaceDataModule(pl.LightningDataModule):
     def __init__(self, config):
         super().__init__()
         self.batch_size = config["batch_size"]
-        self.num_workers = 8  # config['num_workers']
+        self.num_workers = 88  # config['num_workers']
 
     def prepare_data(self):
         # download only
