@@ -110,21 +110,35 @@ class WikiBigramsDataModule(HuggingfaceDataModule):
     @staticmethod
     def download_and_preprocess(n=2, limit_prop=0.01):
         save_name = f"{n}_grams_wikicorpus_{limit_prop * 100}%"
-        cache_file = CACHE_DIR / f"{save_name}.npz"
-        if isfile(cache_file):
+        np_cache_file = CACHE_DIR / f"{save_name}.npz"
+        cache_file = CACHE_DIR / f"{save_name}.pickle"
+        if isfile(np_cache_file) and isfile(cache_file):
             print("Loading WikiBigramsDataModule from cache...")
-            loaded = np.load(cache_file)
+            loaded = np.load(np_cache_file)
             x, y = loaded['x'], loaded['y']
+            with open(cache_file, "rb") as ds_pickle:
+                bigram_count_ds = pickle.load(ds_pickle)
         else:
-            VECTORS(cache=VECTORS_DIR)
-            
+            embedder = VECTORS(cache=VECTORS_DIR)
             print("Saving WikiBigramsDataModule to cache...")
             x, y = save_ngram_counts('wikicorpus', limit_prop=limit_prop, n=n, tokens_key='sentence', 
                 name='tagged_en', save_name=save_name)
 
+            bigram_count_ds = []
+            for bigram, count in zip(x, y):
+                a, b = bigram.split(' ')
+                bigram_embed = torch.cat((embedder[a], embedder[b]), dim=1)
+
+                bigram_count_ds.append(
+                    (bigram_embed, torch.tensor([log(count)], dtype=torch.float32), bigram)
+                )
+
+            with open(cache_file, "wb") as ds_pickle:
+                pickle.dump(bigram_count_ds, ds_pickle)
+
         plot_frequencies(y=y, xlabel='Sorted items in log scale',
                         ylabel='Frequency in log scale', save_name=save_name)
-        return x, y
+        return x, y, bigram_count_ds
 
 
 def plot_frequencies(y, xlabel, ylabel, save_name):
@@ -199,12 +213,13 @@ def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', 
         for b, cnt in b_list.items():
             res[(a[0], b)] = cnt
 
+
     del n_grams
     xs, ys = [], []
     for (a, b), count in sorted(res.items(), key=itemgetter(1), reverse=True):
         xs.append(' '.join((str(a), str(b))))
         ys.append(count)
-
+    
     print(f'Number of examples used: {limit}')
     print(f'Number of bigrams: {len(res)}')
     del res
@@ -214,14 +229,14 @@ def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', 
 
             
 if __name__== "__main__":
-    # WikiBigramsDataModule.download_and_preprocess(limit_prop=0.001)
+    WikiBigramsDataModule.download_and_preprocess(limit_prop=0.001)
 
-    from spacy.lang.en import English
-    nlp = English()
-    filtered_sentence = [] 
-    s = 'This is a sentence for which I have no use .'.split()
-    filtered_s = [w for w in s if not nlp.vocab[w].is_stop]
-    print(f'Sentence: {s}')
-    print(f'Sentence w/o stop-words: {filtered_s}')
+    # from spacy.lang.en import English
+    # nlp = English()
+    # filtered_sentence = [] 
+    # s = 'This is a sentence for which I have no use .'.split()
+    # filtered_s = [w for w in s if not nlp.vocab[w].is_stop]
+    # print(f'Sentence: {s}')
+    # print(f'Sentence w/o stop-words: {filtered_s}')
     # >> Sentence: ['This', 'is', 'a', 'sentence', 'for', 'which', 'I', 'have', 'no', 'use', '.']
     # >> Sentence w/o stop-words: ['sentence', 'use', '.']
