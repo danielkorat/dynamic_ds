@@ -112,7 +112,7 @@ class WikiBigramsDataModule(HuggingfaceDataModule):
         super().__init__(config)
 
     @staticmethod
-    def download_and_preprocess(n=2, limit_prop=0.01):
+    def download_and_preprocess(n=2, limit_prop=0.001):
         save_name = f"{n}_grams_wikicorpus_{limit_prop * 100}%"
         np_cache_file = CACHE_DIR / f"{save_name}.npz"
         features_cache = CACHE_DIR / f'{save_name}_features.npz'
@@ -148,7 +148,7 @@ class WikiBigramsDataModule(HuggingfaceDataModule):
         plot_frequencies(y=y, xlabel='Sorted items in log scale',
                         ylabel='Frequency in log scale', save_name=save_name)
 
-        return x, y, bigram_count_ds
+        return bigram_count_ds
 
 def plot_frequencies(y, xlabel, ylabel, save_name):
     counts = np.log(np.flip(np.sort(y)))

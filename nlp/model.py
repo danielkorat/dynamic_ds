@@ -21,7 +21,7 @@ from torch import nn
 
 import pytorch_lightning as pl
 
-from nlp.data import WordCountDataModule, WikiBigramsDataModule
+from data import WordCountDataModule, WikiBigramsDataModule
 import numpy as np
 
 
@@ -31,7 +31,7 @@ class WordCountPredictor(pl.LightningModule):
         self.save_hyperparameters()
         self.lr = config["learning_rate"]
         self.criterion = nn.MSELoss()
-        self.embed_size = 200  # CharNGram embed size
+        self.embed_size = 100  # CharNGram embed size
 
         self.l1 = nn.Linear(self.embed_size, config["hidden_dim"])
         self.dropout = nn.Dropout(p=config["dropout_prob"])
@@ -118,7 +118,7 @@ def train_simple_model(ds_name):
     trainer_args = {
         # 'gpus': 4,
         # 'accelerator': 'ddp',
-        "max_epochs": 3,
+        "max_epochs": 10,
     }
     trainer = pl.Trainer(**trainer_args)
     trainer.fit(model, datamodule=datamodule)
@@ -166,4 +166,4 @@ def train_simple_model(ds_name):
 
 
 if __name__ == "__main__":
-    train_simple_model('conll2003')
+    train_simple_model('wikicorpus')
