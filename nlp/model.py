@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from argparse import ArgumentParser
 from pprint import pformat
 
 import torch
 from torch import nn
 from torch.optim import Adam
 import pytorch_lightning as pl
+from os.path import dirname, realpath
+from pathlib import Path
 
 from dataset import WordCountDataModule, WikiBigramsDataModule, plot_roc
 import numpy as np
+from pytorch_lightning.loggers import TensorBoardLogger
 
 DATAMODULES = {
     'conll2003': WordCountDataModule,
@@ -69,7 +71,7 @@ class WordCountPredictor(pl.LightningModule):
         self.log("test_loss", loss)
 
     def configure_optimizers(self):
-        opt = self.optim(params=self.parameters(), lr=self.lr)
+        return self.optim(params=self.parameters(), lr=self.lr)
 
 def predict(model, dm, dl):
     Y_pred = []
@@ -111,7 +113,11 @@ def train_simple_model(ds_name, config=dict(), args=dict()):
     if 'gpus' in args:
         args['accelerator'] = 'ddp'
 
+    args['logger'] = TensorBoardLogger(
+        "/home/daniel_nlp/learning-ds/lightning_logs", name="my_model", log_graph=True)
+
     trainer = pl.Trainer(**args)
+    trainer.logger
     trainer.fit(model, datamodule=datamodule)
 
     # ------------
@@ -131,16 +137,18 @@ def train_simple_model(ds_name, config=dict(), args=dict()):
             model, datamodule, datamodule.train_dataset
         )
 
-    paths = [f"true_{datamodule.ds_name}_test.npz",
-             f"true_{datamodule.ds_name}_valid.npz",
-             f"true_{datamodule.ds_name}_train.npz"]
+    save_base = f"{'concat_' if config['concat'] else ''}{config['limit_prop'] * 100}%"
+    base_path = Path(dirname(realpath(__file__)))
+    paths = [base_path / \
+        f"true_{datamodule.ds_name}_{s}_{save_base}.npz" for s in ('train', 'test', 'valid')]
+
     print(f"dumping test train and validation to:\n{' '.join(paths)}")
 
     dump(test_input, test_true, paths[0])
     dump(valid_input, valid_true, paths[1])
     dump(train_input, train_true, paths[2])
 
-    filename = f"pred_{datamodule.ds_name}.npz"
+    filename = base_path / f"pred_{datamodule.ds_name}_{save_base}.npz"
     print(f"dumping test train and validation predictions to:\n{filename}")
 
     np.savez(
@@ -159,15 +167,15 @@ if __name__ == "__main__":
 
     train_simple_model('wikicorpus', 
         config={
-            "limit_prop": 0.01,
+            "limit_prop": 0.02,
             "concat": True,
-            'num_workers': 40,
+            'num_workers': 10,
 
             "hidden_dim": 128,
             "dropout_prob": 0.0,
 
             "optim": Adam,
-            "learning_rate": 1e-3,
+            "learning_rate": 0.0001,
             "batch_size": 128
             },
         args={
