@@ -31,7 +31,7 @@ class WordCountPredictor(pl.LightningModule):
         self.save_hyperparameters()
         self.lr = config["learning_rate"]
         self.criterion = nn.MSELoss()
-        self.embed_size = 100  # CharNGram embed size
+        self.embed_size = 200 if config['concat'] else 100 # CharNGram embed size
 
         self.l1 = nn.Linear(self.embed_size, config["hidden_dim"])
         self.dropout = nn.Dropout(p=config["dropout_prob"])
@@ -78,7 +78,7 @@ def predict(model, dm, dl):
         original_x = dm.ds[dl.indices[i]]
         X.append(original_x)
 
-        x_to_pred = item[0].reshape(-1, 100).to(model.device)
+        x_to_pred = item[0].reshape(-1, model.embed_size).to(model.device)
         Y_pred.append(model(x_to_pred).cpu().detach().numpy().flatten()[0])
 
     Y = np.round(np.exp(Y)).astype(int)
@@ -90,15 +90,16 @@ def dump(input, output, name):
     np.savez(name, x=input, y=output)
 
 
-def train_simple_model(ds_name):
+def train_simple_model(ds_name, args_update=dict()):
     pl.seed_everything(1234)
 
     config = {
         "hidden_dim": 128,
-        "learning_rate": 1e-3,
-        "batch_size": 32,
+        "learning_rate": 0.0001,
+        "batch_size": 128,
         "dropout_prob": 0.0,
     }
+    config.update(args_update)
 
     if ds_name =='conll2003':
         datamodule = WordCountDataModule(config)
@@ -108,16 +109,20 @@ def train_simple_model(ds_name):
         raise AssertionError(f'no dataset called {ds_name}')
 
     model = WordCountPredictor(config)
+
     # ------------
     # training
     # ------------
     trainer_args = {
-        'gpus': 4,
-        'accelerator': 'ddp',
-        "max_epochs": 50,
+        "max_epochs": 40,
     }
+    if 'gpus' in trainer_args:
+        trainer_args['accelerator'] == 'ddp'
+
+    trainer_args.update(args_update)
     trainer = pl.Trainer(**trainer_args)
     trainer.fit(model, datamodule=datamodule)
+
     # ------------
     # testing
     # ------------
@@ -159,6 +164,12 @@ def train_simple_model(ds_name):
     )
 
 if __name__ == "__main__":
-    train_simple_model('wikicorpus')
+    train_simple_model('wikicorpus', {'concat': True, 'limit_prop': 0.001})
 
-    # plot_roc('./pred_wikicorpus.npz', './true_wikicorpus_test.npz', 'wikicorpus_roc.png', 'test_output', 0.01)
+    print('TEST ROC')
+    # TEST
+    plot_roc('./pred_wikicorpus.npz', './true_wikicorpus_test.npz', 'wikicorpus_roc.png', 'test_output', 0.01)
+
+    print('VAL ROC')
+    # VAL
+    plot_roc('./pred_wikicorpus.npz', './true_wikicorpus_valid.npz', 'wikicorpus_roc.png', 'valid_output', 0.01)

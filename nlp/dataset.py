@@ -34,20 +34,21 @@ from string import punctuation as punct
 class HuggingfaceDataModule(pl.LightningDataModule):
     def __init__(self, config):
         super().__init__()
-        self.batch_size = config["batch_size"]
-        self.num_workers = 88  # config['num_workers']
+        config_init = {'num_workers': 10}
+        config_init.update(config)
+        self.config = config_init
 
     def prepare_data(self):
         # download only
-        self.download_and_preprocess()
+        self.download_and_preprocess(**self.config)
 
     @staticmethod
     @abstractmethod
-    def download_and_preprocess():
+    def download_and_preprocess(**kwargs):
         raise NotImplementedError()
 
     def setup(self, stage):
-        ds = self.download_and_preprocess()
+        ds = self.download_and_preprocess(**self.config)
         self.ds = [i[2] for i in ds]
         ds = [i[:2] for i in ds]
         # Splits
@@ -59,7 +60,7 @@ class HuggingfaceDataModule(pl.LightningDataModule):
 
     def split_dataloader(self, split):
         return DataLoader(
-            split, batch_size=self.batch_size, num_workers=self.num_workers
+            split, batch_size=self.config['batch_size'], num_workers=self.config['num_workers']
         )
 
     def train_dataloader(self):
@@ -80,7 +81,7 @@ class WordCountDataModule(HuggingfaceDataModule):
         super().__init__(config)
 
     @staticmethod
-    def download_and_preprocess():
+    def download_and_preprocess(**kwargs):
         if isfile(WordCountDataModule.ds_cache):
             with open(WordCountDataModule.ds_cache, "rb") as ds_pickle:
                 word_count_ds = pickle.load(ds_pickle)
@@ -114,18 +115,16 @@ class WikiBigramsDataModule(HuggingfaceDataModule):
         super().__init__(config)
 
     @staticmethod
-    def download_and_preprocess(n=2, limit_prop=0.001):
-        save_name = f"{n}_grams_wikicorpus_{limit_prop * 100}%"
+    def download_and_preprocess(n=2, limit_prop=0.01, concat=False, **kwargs):
+        save_name = f"{n}_grams_wikicorpus_{'concat_' if concat else ''}{limit_prop * 100}%"
         np_cache_file = CACHE_DIR / f"{save_name}.npz"
         features_cache = CACHE_DIR / f'{save_name}_features.npz'
         if isfile(np_cache_file) and isfile(features_cache):
             print("Loading WikiBigramsDataModule from cache...")
             loaded = np.load(np_cache_file)
             x, y = loaded['x'], loaded['y']
-
             loaded = np.load(features_cache)
             counts_arr, embeds_arr, bigrams_arr = loaded['counts'], loaded['embeds'], loaded['bigrams']
-
         else:
             embedder = VECTORS(cache=VECTORS_DIR)
             print("Saving WikiBigramsDataModule to cache...")
@@ -134,7 +133,13 @@ class WikiBigramsDataModule(HuggingfaceDataModule):
 
             counts, embeds = [], []
             for bigram, count in zip(x, y):
-                bigram_embed = embedder[bigram].cpu().detach().numpy().flatten()
+                if concat:
+                    word_a, word_b = bigram.split()
+                    embed_a = embedder[word_a]
+                    embed_b = embedder[word_b]
+                    bigram_embed = torch.cat((embed_a, embed_b), dim=1).cpu().detach().numpy().flatten()
+                else:
+                    bigram_embed = embedder[bigram].cpu().detach().numpy().flatten()
                 embeds.append(bigram_embed)
                 counts.append(log([count]))
             
@@ -147,8 +152,8 @@ class WikiBigramsDataModule(HuggingfaceDataModule):
             bigram_count_ds.append((torch.tensor(embed, dtype=torch.float),
                 torch.tensor(count, dtype=torch.float), bigram))
 
-        plot_frequencies(y=y, xlabel='Sorted items in log scale',
-                        ylabel='Frequency in log scale', save_name=save_name)
+        # plot_frequencies(y=y, xlabel='Sorted items in log scale',
+        #                 ylabel='Frequency in log scale', save_name=save_name)
 
         return bigram_count_ds
 
@@ -255,4 +260,4 @@ def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', 
 
             
 if __name__== "__main__":
-    WikiBigramsDataModule.download_and_preprocess(limit_prop=0.001)
+    WikiBigramsDataModule.download_and_preprocess(limit_prop=0.001, concat=True)

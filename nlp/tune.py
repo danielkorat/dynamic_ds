@@ -1,5 +1,5 @@
 from model import WordCountPredictor
-from data import WordCountDataModule
+from dataset import WikiBigramsDataModule
 
 import os
 
@@ -15,7 +15,7 @@ from ray.tune.integration.pytorch_lightning import TuneReportCallback, \
 
 def train_word_count_tune(config, checkpoint_dir=None, num_epochs=10, num_gpus=0):
     model = WordCountPredictor(config=config)
-    dm = WordCountDataModule(config=config)
+    dm = WikiBigramsDataModule(config=config)
 
     trainer = pl.Trainer(
         max_epochs=num_epochs,
@@ -37,7 +37,7 @@ def train_word_count_tune_checkpoint(config,
                                 checkpoint_dir=None,
                                 num_epochs=10,
                                 num_gpus=0):
-    dm = WordCountDataModule(config=config)
+    dm = WikiBigramsDataModule(config=config)
     
     trainer = pl.Trainer(
         max_epochs=num_epochs,
@@ -70,13 +70,13 @@ def train_word_count_tune_checkpoint(config,
     trainer.fit(model, datamodule=dm)
 
 def tune_word_count_asha(num_samples=10, num_epochs=10, gpus_per_trial=0):
-    WordCountDataModule.download_and_preprocess()
+    WikiBigramsDataModule.download_and_preprocess()
 
     config = {
         'hidden_dim': tune.choice([32, 64, 128]),
-        'learning_rate': tune.loguniform(1e-4, 1e-1),
-        'batch_size': tune.choice([16, 32, 64]),
-        'dropout_prob': tune.choice([0.0, 0.3, 0.4, 0.5]),
+        'learning_rate': tune.choice([1e-4, 1e-3, 1e-2, 1e-1]),
+        'batch_size': tune.choice([8, 16, 32, 64, 128]),
+        'dropout_prob': tune.choice([0.0, 0.3]),
         # 'num_workers': 1
     }
 
@@ -110,21 +110,20 @@ def tune_word_count_asha(num_samples=10, num_epochs=10, gpus_per_trial=0):
 
 
 def tune_word_count_pbt(num_samples=10, num_epochs=10, gpus_per_trial=0):
-    WordCountDataModule.download_and_preprocess()
+    WikiBigramsDataModule.download_and_preprocess()
 
     config = {
         'hidden_dim': tune.choice([32, 64, 128]),
-        'learning_rate': 1e-3,
-        'batch_size': 64,
-        'dropout_prob': tune.choice([0.0, 0.3, 0.4, 0.5]),
-        # 'num_workers': 1
+        'learning_rate': 1e-4,
+        'batch_size': 32,
+        'dropout_prob': tune.choice([0.0, 0.3]),
     }
 
     scheduler = PopulationBasedTraining(
         perturbation_interval=4,
         hyperparam_mutations={
-            "learning_rate": tune.loguniform(1e-4, 1e-1),
-            "batch_size": [32, 64, 128],
+            "learning_rate": tune.choice([1e-4, 1e-3, 1e-2, 1e-1]),
+            "batch_size": [8, 16, 32, 64, 128],
         })
 
     reporter = CLIReporter(
@@ -164,6 +163,6 @@ if __name__ == "__main__":
         tune_word_count_pbt(num_samples=1, num_epochs=3, gpus_per_trial=0)
     else:
         # ASHA scheduler
-        tune_word_count_asha(num_samples=5, num_epochs=50, gpus_per_trial=0)
+        tune_word_count_asha(num_samples=10, num_epochs=50, gpus_per_trial=0)
         # Population based training
-        tune_word_count_pbt(num_samples=5, num_epochs=50, gpus_per_trial=0)
+        tune_word_count_pbt(num_samples=10, num_epochs=50, gpus_per_trial=0)
