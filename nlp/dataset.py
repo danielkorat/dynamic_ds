@@ -34,9 +34,7 @@ from string import punctuation as punct
 class HuggingfaceDataModule(pl.LightningDataModule):
     def __init__(self, config):
         super().__init__()
-        config_init = {'num_workers': 10}
-        config_init.update(config)
-        self.config = config_init
+        self.config = config
 
     def prepare_data(self):
         # download only
@@ -208,7 +206,9 @@ def plot_roc(pred_data_path, true_data_path,dump_path, predictions_key='test_out
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     plt.show()
+    print('Saving plot...')
     plt.savefig(dump_path)
+    print('Done.')
 
 def clean(toks: list, nlp):
     res_texts, cur_text = [], []
