@@ -22,7 +22,8 @@ import numpy as np
 from nltk.lm import NgramCounter
 from nltk.util import ngrams
 
-CACHE_DIR = Path(dirname(realpath(__file__))) / "data"
+NLP_DIR = Path(dirname(realpath(__file__)))
+CACHE_DIR = NLP_DIR / "data"
 VECTORS_DIR = CACHE_DIR / ".vector_cache"
 
 VECTORS = CharNGram
@@ -163,23 +164,22 @@ def plot_frequencies(y, xlabel, ylabel, save_name):
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.legend([save_name])
-    fig.savefig(CACHE_DIR / f'{save_name}.png')
+    fig.savefig(NLP_DIR / f'{save_name}.png')
 
 
-def plot_roc(pred_data_path, true_data_path,dump_path, predictions_key='test_output',
-             hh_fraction=0.01):
+def plot_roc(targets: dict, preds: str, split: str, hh_frac=0.01):
     # plotting predictions for <percentile>-heavy hitter
 
-    predictions = np.load(pred_data_path)
-    true_data = np.load(true_data_path)
+    predictions = np.load(preds)
+    true_data = np.load(targets[split])
 
     # print((predictions['test_input'] == true_data['x']).all()) # make sure test equals :)
 
-    y_pred_scores = predictions[predictions_key]
+    y_pred_scores = predictions[split + '_output']
     y_true_scores = true_data['y']
 
     threshold = np.flip(np.sort(y_true_scores))[
-        int(y_true_scores.size * hh_fraction)]
+        int(y_true_scores.size * hh_frac)]
 
     y_true = np.zeros_like(y_true_scores)
     y_true[y_true_scores >= threshold] = 1
@@ -198,14 +198,14 @@ def plot_roc(pred_data_path, true_data_path,dump_path, predictions_key='test_out
     plt.plot(fpr, tpr, marker='.', label=f'Learned model- AUC={lr_auc:.2f}')
     plt.plot(ns_fpr, ns_tpr, marker='.')
 
-    plt.title(f'roc curve for {hh_fraction}-heavy hitters model')
+    plt.title(f'roc curve for {hh_frac}-heavy hitters model')
     plt.legend()
 
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     plt.show()
     print('Saving plot...')
-    plt.savefig(dump_path)
+    plt.savefig(CACHE_DIR / f'roc_curve.png')
     print('Done.')
 
 def clean(toks: list, nlp):

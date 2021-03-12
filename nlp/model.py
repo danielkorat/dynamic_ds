@@ -23,7 +23,6 @@ from pathlib import Path
 
 from dataset import WordCountDataModule, WikiBigramsDataModule, plot_roc
 import numpy as np
-from pytorch_lightning.loggers import TensorBoardLogger
 
 DATAMODULES = {
     'conll2003': WordCountDataModule,
@@ -43,6 +42,8 @@ class WordCountPredictor(pl.LightningModule):
         self.l1 = nn.Linear(self.embed_size, config["hidden_dim"])
         self.dropout = nn.Dropout(p=config["dropout_prob"])
         self.l2 = nn.Linear(config["hidden_dim"], 1)
+
+        self.example_input_array = torch.rand(1, 1, 200)
 
     def step(self, batch):
         x, y = batch
@@ -92,7 +93,7 @@ def predict(model, dm, dl):
 
 
 def dump(input, output, name):
-    np.savez(name, x=input, y=output)
+    np.savez(str(name), x=input, y=output)
 
 
 def train_simple_model(ds_name, config=dict(), args=dict()):
@@ -100,7 +101,7 @@ def train_simple_model(ds_name, config=dict(), args=dict()):
         [pformat({k: v}) for k, v in locals().items()] + ['\n'])
     print(hpramas_str)
 
-    pl.seed_everything(1234)
+    pl.seed_everything(123)
 
     datamodule = DATAMODULES[ds_name](config)
     
@@ -112,9 +113,6 @@ def train_simple_model(ds_name, config=dict(), args=dict()):
 
     if 'gpus' in args:
         args['accelerator'] = 'ddp'
-
-    args['logger'] = TensorBoardLogger(
-        "/home/daniel_nlp/learning-ds/lightning_logs", name="my_model", log_graph=True)
 
     trainer = pl.Trainer(**args)
     trainer.logger
@@ -139,20 +137,20 @@ def train_simple_model(ds_name, config=dict(), args=dict()):
 
     save_base = f"{'concat_' if config['concat'] else ''}{config['limit_prop'] * 100}%"
     base_path = Path(dirname(realpath(__file__)))
-    paths = [base_path / \
-        f"true_{datamodule.ds_name}_{s}_{save_base}.npz" for s in ('train', 'test', 'valid')]
+    targets_paths = {s: str(base_path / f"true_{datamodule.ds_name}_{s}_{save_base}.npz") \
+        for s in ('train', 'test', 'valid')}
 
-    print(f"dumping test train and validation to:\n{' '.join(paths)}")
+    print(f"dumping test train and validation to:\n{' '.join(targets_paths)}")
+    
+    dump(test_input, test_true, targets_paths['test'])
+    dump(valid_input, valid_true, targets_paths['valid'])
+    dump(train_input, train_true, targets_paths['train'])
 
-    dump(test_input, test_true, paths[0])
-    dump(valid_input, valid_true, paths[1])
-    dump(train_input, train_true, paths[2])
-
-    filename = base_path / f"pred_{datamodule.ds_name}_{save_base}.npz"
-    print(f"dumping test train and validation predictions to:\n{filename}")
+    preds_path = str(base_path / f"pred_{datamodule.ds_name}_{save_base}.npz")
+    print(f"dumping test train and validation predictions to:\n{preds_path}")
 
     np.savez(
-        filename,
+        preds_path,
         test_input=test_input,
         valid_input=valid_input,
         train_output=train_output,
@@ -163,11 +161,13 @@ def train_simple_model(ds_name, config=dict(), args=dict()):
 
     print(hpramas_str)
 
+    return targets_paths, preds_path
+
 if __name__ == "__main__":
 
-    train_simple_model('wikicorpus', 
+    targets, preds = train_simple_model('wikicorpus', 
         config={
-            "limit_prop": 0.02,
+            "limit_prop": 0.01,
             "concat": True,
             'num_workers': 10,
 
@@ -185,8 +185,7 @@ if __name__ == "__main__":
 
     print('TEST ROC')
     # TEST
-    plot_roc('./pred_wikicorpus.npz', './true_wikicorpus_test.npz',
-        'wikicorpus_roc_test.png', 'test_output', 0.01)
+    plot_roc(targets=targets, preds=preds, split='test', hh_frac=0.01)
 
     # print('VAL ROC')
     # # VAL

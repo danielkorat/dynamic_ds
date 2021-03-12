@@ -148,3 +148,8 @@ true_wikicorpus_train.npz
 true_wikicorpus_test.npz
 true_wikicorpus_valid.npz
 param_results/
+nlp/true_wikicorpus_valid_concat_0.1%.npz
+.gitignore
+nlp/pred_wikicorpus_concat_0.1%.npz
+nlp/true_wikicorpus_train_concat_0.1%.npz
+nlp/true_wikicorpus_test_concat_0.1%.npz
