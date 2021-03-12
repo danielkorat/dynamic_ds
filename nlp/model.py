@@ -13,16 +13,20 @@
 # limitations under the License.
 
 from argparse import ArgumentParser
-from os import X_OK
-from pprint import pprint
+from pprint import pformat
 
 import torch
 from torch import nn
-
+from torch.optim import Adam
 import pytorch_lightning as pl
 
 from dataset import WordCountDataModule, WikiBigramsDataModule, plot_roc
 import numpy as np
+
+DATAMODULES = {
+    'conll2003': WordCountDataModule,
+    'wikicorpus': WikiBigramsDataModule
+}
 
 
 class WordCountPredictor(pl.LightningModule):
@@ -32,10 +36,16 @@ class WordCountPredictor(pl.LightningModule):
         self.lr = config["learning_rate"]
         self.criterion = nn.MSELoss()
         self.embed_size = 200 if config['concat'] else 100 # CharNGram embed size
+        self.optim = config["optim"]
 
         self.l1 = nn.Linear(self.embed_size, config["hidden_dim"])
         self.dropout = nn.Dropout(p=config["dropout_prob"])
         self.l2 = nn.Linear(config["hidden_dim"], 1)
+
+    def step(self, batch):
+        x, y = batch
+        y_hat = self(x)
+        return self.criterion(y_hat, y)
 
     def forward(self, x):
         x = x.view(x.size(0), -1)
@@ -45,28 +55,21 @@ class WordCountPredictor(pl.LightningModule):
         return x
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
-        loss = self.criterion(y_hat, y)
+        loss = self.step(batch)
         self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
-        loss = self.criterion(y_hat, y)
+        loss = self.step(batch)
         self.log("val_loss", loss)
         return loss
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
-        loss = self.criterion(y_hat, y)
+        loss = self.step(batch)
         self.log("test_loss", loss)
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
-
+        opt = self.optim(params=self.parameters(), lr=self.lr)
 
 def predict(model, dm, dl):
     Y_pred = []
@@ -90,44 +93,31 @@ def dump(input, output, name):
     np.savez(name, x=input, y=output)
 
 
-def train_simple_model(ds_name, args_update=dict()):
+def train_simple_model(ds_name, config=dict(), args=dict()):
+    hpramas_str = '\n'.join(['\n', 'HYPERPARAMS', '-' * 11] + 
+        [pformat({k: v}) for k, v in locals().items()] + ['\n'])
+    print(hpramas_str)
+
     pl.seed_everything(1234)
 
-    config = {
-        "hidden_dim": 128,
-        "learning_rate": 0.0001,
-        "batch_size": 128,
-        "dropout_prob": 0.0,
-    }
-    config.update(args_update)
-
-    if ds_name =='conll2003':
-        datamodule = WordCountDataModule(config)
-    elif ds_name =='wikicorpus':
-        datamodule = WikiBigramsDataModule(config)
-    else:
-        raise AssertionError(f'no dataset called {ds_name}')
-
+    datamodule = DATAMODULES[ds_name](config)
+    
     model = WordCountPredictor(config)
 
     # ------------
     # training
     # ------------
-    trainer_args = {
-        "max_epochs": 40,
-    }
-    if 'gpus' in trainer_args:
-        trainer_args['accelerator'] == 'ddp'
 
-    trainer_args.update(args_update)
-    trainer = pl.Trainer(**trainer_args)
+    if 'gpus' in args:
+        args['accelerator'] = 'ddp'
+
+    trainer = pl.Trainer(**args)
     trainer.fit(model, datamodule=datamodule)
 
     # ------------
     # testing
     # ------------
-    # todo: without passing model it fails for missing best weights
-    # MisconfigurationException, 'ckpt_path is "best", but ModelCheckpoint is not configured to save the best model.'
+    
     test_loss = trainer.test(model, datamodule=datamodule)
 
     with torch.no_grad():
@@ -163,13 +153,34 @@ def train_simple_model(ds_name, args_update=dict()):
         test_loss=test_loss,
     )
 
+    print(hpramas_str)
+
 if __name__ == "__main__":
-    train_simple_model('wikicorpus', {'concat': True, 'limit_prop': 0.001})
+
+    train_simple_model('wikicorpus', 
+        config={
+            "limit_prop": 0.01,
+            "concat": True,
+            'num_workers': 40,
+
+            "hidden_dim": 128,
+            "dropout_prob": 0.0,
+
+            "optim": Adam,
+            "learning_rate": 1e-3,
+            "batch_size": 128
+            },
+        args={
+            'gpus': 4,
+            'max_epochs': 60
+            })
 
     print('TEST ROC')
     # TEST
-    plot_roc('./pred_wikicorpus.npz', './true_wikicorpus_test.npz', 'wikicorpus_roc.png', 'test_output', 0.01)
+    plot_roc('./pred_wikicorpus.npz', './true_wikicorpus_test.npz',
+        'wikicorpus_roc_test.png', 'test_output', 0.01)
 
-    print('VAL ROC')
-    # VAL
-    plot_roc('./pred_wikicorpus.npz', './true_wikicorpus_valid.npz', 'wikicorpus_roc.png', 'valid_output', 0.01)
+    # print('VAL ROC')
+    # # VAL
+    # plot_roc('./pred_wikicorpus.npz', './true_wikicorpus_valid.npz',
+    #     'wikicorpus_val_roc.png', 'valid_output', 0.01)
