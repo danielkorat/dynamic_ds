@@ -21,7 +21,7 @@ import pytorch_lightning as pl
 from os.path import dirname, realpath
 from pathlib import Path
 
-from dataset import WordCountDataModule, WikiBigramsDataModule, plot_roc
+from nlp.dataset import WordCountDataModule, WikiBigramsDataModule, plot_roc
 import numpy as np
 
 DATAMODULES = {
@@ -70,6 +70,7 @@ class WordCountPredictor(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         loss = self.step(batch)
         self.log("test_loss", loss)
+        return loss
 
     def configure_optimizers(self):
         return self.optim(params=self.parameters(), lr=self.lr)
@@ -167,13 +168,11 @@ if __name__ == "__main__":
 
     targets, preds = train_simple_model('wikicorpus', 
         config={
-            "limit_prop": 0.01,
+            "limit_prop": 0.015,
             "concat": True,
             'num_workers': 10,
-
             "hidden_dim": 128,
             "dropout_prob": 0.0,
-
             "optim": Adam,
             "learning_rate": 0.0001,
             "batch_size": 128
@@ -183,11 +182,12 @@ if __name__ == "__main__":
             'max_epochs': 60
             })
 
+    print(f"targets: {targets}")
+    print(f"preds: {preds}")
+
     print('TEST ROC')
-    # TEST
     plot_roc(targets=targets, preds=preds, split='test', hh_frac=0.01)
 
     # print('VAL ROC')
-    # # VAL
-    # plot_roc('./pred_wikicorpus.npz', './true_wikicorpus_valid.npz',
-    #     'wikicorpus_val_roc.png', 'valid_output', 0.01)
+    # plot_roc(targets=targets, preds=preds, split='valid', hh_frac=0.01)
+
