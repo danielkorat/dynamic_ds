@@ -5,7 +5,6 @@ from os.path import dirname, realpath, isfile
 import pickle
 from collections import defaultdict
 from abc import abstractmethod
-from threading import current_thread
 
 import torch
 from sklearn.metrics import roc_auc_score, roc_curve
@@ -50,7 +49,7 @@ class HuggingfaceDataModule(pl.LightningDataModule):
         self.ds = [i[2] for i in ds]
         ds = [i[:2] for i in ds]
         # Splits
-        split_sizes = [int(len(ds) * 0.7), int(len(ds) * 0.15), int(len(ds) * 0.15)]
+        split_sizes = [int(len(ds) * 0.35), int(len(ds) * 0.15), int(len(ds) * 0.50)]
         if sum(split_sizes) < len(ds):
             split_sizes[0] += len(ds) - sum(split_sizes)
 
@@ -113,14 +112,16 @@ class WikiBigramsDataModule(HuggingfaceDataModule):
         super().__init__(config)
 
     @staticmethod
-    def download_and_preprocess(n=2, limit_prop=0.01, concat=False, **kwargs):
+    def download_and_preprocess(limit_prop, n=2, concat=False, **kwargs):
         save_name = f"{n}_grams_wikicorpus_{'concat_' if concat else ''}{limit_prop * 100}%"
         np_cache_file = CACHE_DIR / f"{save_name}.npz"
         features_cache = CACHE_DIR / f'{save_name}_features.npz'
         if isfile(np_cache_file) and isfile(features_cache):
             print("Loading WikiBigramsDataModule from cache...")
+            print(f"np_cache_file: {np_cache_file}")
             loaded = np.load(np_cache_file)
             x, y = loaded['x'], loaded['y']
+            print(f"features_cache: {features_cache}")
             loaded = np.load(features_cache)
             counts_arr, embeds_arr, bigrams_arr = loaded['counts'], loaded['embeds'], loaded['bigrams']
         else:
@@ -149,9 +150,6 @@ class WikiBigramsDataModule(HuggingfaceDataModule):
         for count, embed, bigram in zip(counts_arr, embeds_arr, bigrams_arr):
             bigram_count_ds.append((torch.tensor(embed, dtype=torch.float),
                 torch.tensor(count, dtype=torch.float), bigram))
-
-        # plot_frequencies(y=y, xlabel='Sorted items in log scale',
-        #                 ylabel='Frequency in log scale', save_name=save_name)
 
         return bigram_count_ds
 
@@ -260,4 +258,6 @@ def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', 
 
             
 if __name__== "__main__":
-    WikiBigramsDataModule.download_and_preprocess(limit_prop=0.001, concat=True)
+    # WikiBigramsDataModule.download_and_preprocess(limit_prop=0.001, concat=True)
+    print(len(np.load('./true_wikicorpus_valid.npz')['x']))
+    print(len(np.load('./true_wikicorpus_train.npz')['x']))

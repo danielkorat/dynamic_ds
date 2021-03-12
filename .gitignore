@@ -147,3 +147,4 @@ pred_wikicorpus.npz
 true_wikicorpus_train.npz
 true_wikicorpus_test.npz
 true_wikicorpus_valid.npz
+param_results/
