@@ -160,12 +160,12 @@ if __name__ == "__main__":
     targets, preds = train_simple_model( 
         config={
             'ds_name': 'wikicorpus',
-            'embed_type': 'CharNGram',
-            'embed_dim': 100,
+            'embed_type': 'Glove',
+            'embed_dim': 50,
             'op': 'concat',
             'n': 2,
-            "limit_prop": 0.001,
-            'num_workers': 10,
+            "limit_prop": 0.01,
+            'num_workers': 22,
             "hidden_dim": 128,
             "dropout_prob": 0.0,
             "optim": Adam,
@@ -173,8 +173,8 @@ if __name__ == "__main__":
             "batch_size": 128
             },
         args={
-            # 'gpus': 4,
-            'max_epochs': 10
+            'gpus': 4,
+            'max_epochs': 60
             })
 
     print(f"targets: {targets}")
