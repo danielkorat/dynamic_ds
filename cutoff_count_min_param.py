@@ -8,9 +8,10 @@ from itertools import repeat
 from multiprocessing import Pool
 
 from utils.conll_utils import get_data_conll_query
-from utils.utils import get_stat, git_log, get_data_str_with_ports_list
+from utils.utils import get_stat, get_data_str_with_ports_list
 from utils.aol_utils import get_data_aol_query_list
-from sketch import cutoff_countmin, cutoff_lookup, cutoff_countmin_wscore, order_y_wkey_list
+from sketch import cutoff_countmin, cutoff_lookup, cutoff_countmin_wscore, \
+    order_y_wkey_list, cutoff_countsketch_wscore_two
 from sketch import cutoff_countsketch, cutoff_countsketch_wscore
 
 
@@ -33,6 +34,18 @@ def run_ccm_wscore(y, scores, score_cutoff, n_cm_buckets, n_hashes, name, sketch
     print('%s: scut: %.3f, # hashes %d, # cm buckets %d - loss %.2f\t time: %.2f sec' % \
         (name, score_cutoff, n_hashes, n_cm_buckets, loss, time.time() - start_t))
     return loss, space
+
+
+def run_ccm_wscore_2(y, scores, score_cutoff, n_cm_buckets, n_hashes, name, sketch_type):
+    start_t = time.time()
+    if sketch_type == 'count_min':
+        loss, space = cutoff_countmin_wscore(y, scores, score_cutoff, n_cm_buckets, n_hashes)
+    else:
+        loss, space = cutoff_countsketch_wscore_two(y, scores, score_cutoff, 2*n_cm_buckets, 2*n_hashes, 0.5*score_cutoff, n_cm_buckets, n_hashes)
+    print('%s: scut: %.3f, # hashes %d, # cm buckets %d - loss %.2f\t time: %.2f sec' % \
+        (name +'second', score_cutoff, n_hashes, n_cm_buckets, loss, time.time() - start_t))
+    return loss, space
+
 
 def run_ccm_lookup(x, y, n_hashes, n_cm_buckets, d_lookup, s_cutoff, name, sketch_type):
     start_t = time.time()
@@ -272,6 +285,9 @@ class LearnedCountMinEvaluation:
                         best_n_buckets[i], best_n_hashes[i],
                         best_valid_loss[i], best_valid_space[i])
 
+
+
+
         # test data using best parameters
         pool = Pool(args.n_workers)
         if args.perfect_order:
@@ -312,6 +328,18 @@ class LearnedCountMinEvaluation:
         with open(os.path.join(folder, args.save + '.log'), 'w') as f:
             f.write(log_str)
 
+        test_loss_two = []
+        space_two = []
+        for i in range(len(best_valid_loss)):
+            loss, space = run_ccm_wscore_2(
+                y_test_ordered,
+                test_scores, best_scuts[i],
+                (best_n_buckets - best_bcuts)[i],
+                best_n_hashes[i], name, sketch_type)
+            test_loss_two.append(test_loss_two)
+            space_two.append(space)
+
+
         np.savez(os.path.join(folder, args.save + '_test'),
                  command=command,
                  loss_all=test_results,
@@ -321,7 +349,15 @@ class LearnedCountMinEvaluation:
                  n_buckets=best_n_buckets,
                  space_list=args.space_list,
                  space_actual=space_test,
+                 test_loss_two = np.array(test_loss_two),
+                 space_two = np.array(space_two)
                  )
+
+        print(run_ccm_wscore_2(
+           y_test_ordered,
+               test_scores, best_scuts[0],
+            (best_n_buckets - best_bcuts)[0],
+                           best_n_hashes[0], name,sketch_type))
 
 
 if __name__ == '__main__':
