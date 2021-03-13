@@ -21,14 +21,13 @@ def smooth_out(data, model_size):
     loss_all = data["loss_all"][indices].tolist()
     while True:
         j = 0
-        while j + 1 < len(space_actual) - 1:
-            j += 1
+        while j + 1 <= len(space_actual) - 1:
             if loss_all[j + 1] > loss_all[j]:
                 del loss_all[j + 1]
                 del space_actual[j + 1]
                 break
-
-        if j == len(space_actual) - 1:
+            j += 1
+        if j >= len(space_actual) - 1 or j==0:
             break
     return loss_all, space_actual
 
