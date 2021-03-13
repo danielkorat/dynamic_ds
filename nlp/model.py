@@ -21,7 +21,7 @@ import pytorch_lightning as pl
 from os.path import dirname, realpath
 from pathlib import Path
 
-from dataset import NGramData, plot_roc, get_feats_repr
+from nlp.dataset import NGramData, plot_roc, get_feats_repr
 import numpy as np
 
 
@@ -160,12 +160,12 @@ if __name__ == "__main__":
     targets, preds = train_simple_model( 
         config={
             'ds_name': 'wikicorpus',
-            'embed_type': 'Glove',
-            'embed_dim': 50,
+            'embed_type': 'CharNGram',
+            'embed_dim': 100,
             'op': 'concat',
             'n': 2,
             "limit_prop": 0.01,
-            'num_workers': 22,
+            'num_workers': 10,
             "hidden_dim": 128,
             "dropout_prob": 0.0,
             "optim": Adam,
