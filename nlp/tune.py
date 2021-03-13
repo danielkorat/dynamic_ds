@@ -1,4 +1,4 @@
-from model import WordCountPredictor
+from model import CountPredictor
 from dataset import WikiBigramsDataModule
 
 import os
@@ -14,7 +14,7 @@ from ray.tune.integration.pytorch_lightning import TuneReportCallback, \
 
 
 def train_word_count_tune(config, checkpoint_dir=None, num_epochs=10, num_gpus=0):
-    model = WordCountPredictor(config=config)
+    model = CountPredictor(config=config)
     dm = WikiBigramsDataModule(config=config)
 
     trainer = pl.Trainer(
@@ -61,11 +61,11 @@ def train_word_count_tune_checkpoint(config,
         ckpt = pl_load(
             os.path.join(checkpoint_dir, "checkpoint"),
             map_location=lambda storage, loc: storage)
-        model = WordCountPredictor._load_model_state(
+        model = CountPredictor._load_model_state(
             ckpt, config=config)
         trainer.current_epoch = ckpt["epoch"]
     else:
-        model = WordCountPredictor(config=config)
+        model = CountPredictor(config=config)
 
     trainer.fit(model, datamodule=dm)
 

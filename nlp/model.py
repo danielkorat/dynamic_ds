@@ -21,28 +21,25 @@ import pytorch_lightning as pl
 from os.path import dirname, realpath
 from pathlib import Path
 
-from dataset import WordCountDataModule, WikiBigramsDataModule, WikiBigramsAdditionDataModule, plot_roc
+from dataset import NGramData, plot_roc, get_feats_repr
 import numpy as np
 
-DATAMODULES = {
-    'conll2003': WordCountDataModule,
-    'wikicorpus': WikiBigramsDataModule,
-    'wikicorpus_add': WikiBigramsAdditionDataModule
-}
 
-
-class WordCountPredictor(pl.LightningModule):
+class CountPredictor(pl.LightningModule):
     def __init__(self, config):
         super().__init__()
         self.save_hyperparameters()
         self.lr = config["learning_rate"]
         self.criterion = nn.MSELoss()
-        self.embed_size = 200 if config['concat'] else 100 # CharNGram embed size
         self.optim = config["optim"]
 
+        self.embed_size = config['embed_dim']
+        if config['op'] == 'concat':
+            self.embed_size = 2 * self.embed_size
+
         self.l1 = nn.Linear(self.embed_size, config["hidden_dim"])
-        self.dropout = nn.Dropout(p=config["dropout_prob"])
         self.l2 = nn.Linear(config["hidden_dim"], 1)
+        self.dropout = nn.Dropout(p=config["dropout_prob"])
 
     def step(self, batch):
         x, y = batch
@@ -95,17 +92,14 @@ def predict(model, dm, dl):
 def dump(input, output, name):
     np.savez(str(name), x=input, y=output)
 
-
-def train_simple_model(ds_name, config=dict(), args=dict()):
+def train_simple_model(config=dict(), args=dict()):
     hpramas_str = '\n'.join(['\n', 'HYPERPARAMS', '-' * 11] + 
         [pformat({k: v}) for k, v in locals().items()] + ['\n'])
     print(hpramas_str)
 
     pl.seed_everything(123)
-
-    datamodule = DATAMODULES[ds_name](config)
-    
-    model = WordCountPredictor(config)
+    datamodule = NGramData(config)
+    model = CountPredictor(config)
 
     # ------------
     # training
@@ -135,9 +129,9 @@ def train_simple_model(ds_name, config=dict(), args=dict()):
             model, datamodule, datamodule.train_dataset
         )
 
-    save_base = f"{'concat_' if config['concat'] else ''}{config['limit_prop'] * 100}%"
+    feats_repr = get_feats_repr(config)
     base_path = Path(dirname(realpath(__file__)))
-    targets_paths = {s: str(base_path / f"true_{datamodule.ds_name}_{s}_{save_base}.npz") \
+    targets_paths = {s: str(base_path / f"true_{feats_repr}.npz") \
         for s in ('train', 'test', 'valid')}
 
     print(f"dumping test train and validation to:\n{' '.join(targets_paths)}")
@@ -146,7 +140,7 @@ def train_simple_model(ds_name, config=dict(), args=dict()):
     dump(valid_input, valid_true, targets_paths['valid'])
     dump(train_input, train_true, targets_paths['train'])
 
-    preds_path = str(base_path / f"pred_{datamodule.ds_name}_{save_base}.npz")
+    preds_path = str(base_path / f"pred_{feats_repr}.npz")
     print(f"dumping test train and validation predictions to:\n{preds_path}")
 
     np.savez(
@@ -160,15 +154,17 @@ def train_simple_model(ds_name, config=dict(), args=dict()):
     )
 
     print(hpramas_str)
-
     return targets_paths, preds_path
 
 if __name__ == "__main__":
-
-    targets, preds = train_simple_model('wikicorpus_add', 
+    targets, preds = train_simple_model( 
         config={
-            "limit_prop": 0.03,
-            "concat": False,
+            'ds_name': 'wikicorpus',
+            'embed_type': 'CharNGram',
+            'embed_dim': 100,
+            'op': 'concat',
+            'n': 2,
+            "limit_prop": 0.001,
             'num_workers': 10,
             "hidden_dim": 128,
             "dropout_prob": 0.0,
@@ -177,8 +173,8 @@ if __name__ == "__main__":
             "batch_size": 128
             },
         args={
-            'gpus': 4,
-            'max_epochs': 10
+            # 'gpus': 4,
+            'max_epochs': 
             })
 
     print(f"targets: {targets}")
