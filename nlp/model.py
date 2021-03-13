@@ -131,7 +131,7 @@ def train_simple_model(config=dict(), args=dict()):
 
     feats_repr = get_feats_repr(config)
     base_path = Path(dirname(realpath(__file__)))
-    targets_paths = {s: str(base_path / f"true_{feats_repr}.npz") \
+    targets_paths = {s: str(base_path / f"true_{feats_repr}_{s}.npz") \
         for s in ('train', 'test', 'valid')}
 
     print(f"dumping test train and validation to:\n{' '.join(targets_paths)}")
@@ -162,7 +162,7 @@ if __name__ == "__main__":
             'ds_name': 'wikicorpus',
             'embed_type': 'CharNGram',
             'embed_dim': 100,
-            'op': 'add',
+            'op': 'concat',
             'n': 2,
             "limit_prop": 0.001,
             'num_workers': 10,
