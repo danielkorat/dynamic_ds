@@ -328,16 +328,16 @@ class LearnedCountMinEvaluation:
         with open(os.path.join(folder, args.save + '.log'), 'w') as f:
             f.write(log_str)
 
-        test_loss_two = []
-        space_two = []
-        for i in range(len(best_valid_loss)):
-            loss, space = run_ccm_wscore_2(
-                y_test_ordered,
-                test_scores, best_scuts[i],
-                (best_n_buckets - best_bcuts)[i],
-                best_n_hashes[i], name, sketch_type)
-            test_loss_two.append(test_loss_two)
-            space_two.append(space)
+        # test_loss_two = []
+        # space_two = []
+        # for i in range(len(best_valid_loss)):
+        #     loss, space = run_ccm_wscore_2(
+        #         y_test_ordered,
+        #         test_scores, best_scuts[i],
+        #         (best_n_buckets - best_bcuts)[i],
+        #         best_n_hashes[i], name, sketch_type)
+        #     test_loss_two.append(test_loss_two)
+        #     space_two.append(space)
 
 
         np.savez(os.path.join(folder, args.save + '_test'),
@@ -349,15 +349,15 @@ class LearnedCountMinEvaluation:
                  n_buckets=best_n_buckets,
                  space_list=args.space_list,
                  space_actual=space_test,
-                 test_loss_two = np.array(test_loss_two),
-                 space_two = np.array(space_two)
+                 # test_loss_two = np.array(test_loss_two),
+                 # space_two = np.array(space_two)
                  )
-
-        print(run_ccm_wscore_2(
-           y_test_ordered,
-               test_scores, best_scuts[0],
-            (best_n_buckets - best_bcuts)[0],
-                           best_n_hashes[0], name,sketch_type))
+        #
+        # print(run_ccm_wscore_2(
+        #    y_test_ordered,
+        #        test_scores, best_scuts[0],
+        #     (best_n_buckets - best_bcuts)[0],
+        #                    best_n_hashes[0], name,sketch_type))
 
 
 if __name__ == '__main__':
