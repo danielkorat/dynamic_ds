@@ -162,7 +162,7 @@ if __name__ == "__main__":
             'ds_name': 'wikicorpus',
             'embed_type': 'CharNGram',
             'embed_dim': 100,
-            'op': 'concat',
+            'op': 'add',
             'n': 2,
             "limit_prop": 0.001,
             'num_workers': 10,
@@ -174,7 +174,7 @@ if __name__ == "__main__":
             },
         args={
             # 'gpus': 4,
-            'max_epochs': 
+            'max_epochs': 10
             })
 
     print(f"targets: {targets}")
