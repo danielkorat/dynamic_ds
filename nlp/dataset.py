@@ -50,7 +50,7 @@ class HuggingfaceDataModule(pl.LightningDataModule):
         self.ds = [i[2] for i in ds]
         ds = [i[:2] for i in ds]
         # Splits
-        split_sizes = [int(len(ds) * 0.35), int(len(ds) * 0.15), int(len(ds) * 0.50)]
+        split_sizes = [int(len(ds) * p) for p in (0.4, 0.3, 0.3)]
         if sum(split_sizes) < len(ds):
             split_sizes[0] += len(ds) - sum(split_sizes)
 
@@ -129,7 +129,7 @@ class WikiBigramsDataModule(HuggingfaceDataModule):
             embedder = VECTORS(cache=VECTORS_DIR)
             print("Saving WikiBigramsDataModule to cache...")
             x, y = save_ngram_counts('wikicorpus', limit_prop=limit_prop, n=n, tokens_key='sentence', 
-                name='tagged_en', save_name=save_name)
+                name='tagged_en', concat=concat)
 
             counts, embeds = [], []
             for bigram, count in zip(x, y):
@@ -221,7 +221,9 @@ def clean(toks: list, nlp):
     return res_texts
 
 
-def save_ngram_counts(ds_name, limit_prop, save_name, n=2, tokens_key='tokens', **kwargs):
+def save_ngram_counts(ds_name, limit_prop, concat, n=2, tokens_key='tokens', **kwargs):
+    save_name = f"{n}_grams_wikicorpus_{'concat_' if concat else ''}{limit_prop * 100}%"
+
     ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)['train']
     limit = int(limit_prop * len(ds))
 
