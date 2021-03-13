@@ -39,6 +39,10 @@ FIXED_DIM_EMBED_TYPES = {
     'CharNGram': 100
 }
 
+EMBED_KWARGS ={
+    'Glove': {'name': '6B'},
+}
+
 DS_KWARGS ={
     'wikicorpus': {'tokens_key': 'sentence', 'name': 'tagged_en'},
     'conll2003': {'tokens_key': 'tokens'}
@@ -261,12 +265,12 @@ def save_features(x, y, cache, config):
     embedder_cls = VECTORS[embed_type]
 
     if embed_type in FIXED_DIM_EMBED_TYPES:
-        embedder = embedder_cls(cache=VECTORS_DIR)
+        embedder = embedder_cls(cache=VECTORS_DIR, **EMBED_KWARGS[embed_type])
     else:
-        embedder = embedder_cls(cache=VECTORS_DIR, dim=embed_dim)
+        embedder = embedder_cls(cache=VECTORS_DIR, dim=embed_dim, **EMBED_KWARGS[embed_type])
 
     counts, embeds = [], []
-    for bigram, count in zip(x, y):
+    for bigram, count in tqdm(zip(x, y)):
         if op in ('concat', 'add'):
             word_a, word_b = bigram.split()
             embed_a = embedder[word_a]
