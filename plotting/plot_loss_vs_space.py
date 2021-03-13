@@ -31,6 +31,21 @@ def smooth_out(data, model_size):
             break
     return loss_all, space_actual
 
+def smooth_out_two(data, model_size):
+    indices = np.argsort(data["space_two"])
+    space_actual = (data["space_two"][indices] / 1e6 + model_size).tolist()
+    loss_all = data["test_loss_two"][indices].tolist()
+    while True:
+        j = 0
+        while j + 1 <= len(space_actual) - 1:
+            if loss_all[j + 1] > loss_all[j]:
+                del loss_all[j + 1]
+                del space_actual[j + 1]
+                break
+            j += 1
+        if j >= len(space_actual) - 1 or j==0:
+            break
+    return loss_all, space_actual
 
 class PlotLossVsSpace:
     def __init__(
