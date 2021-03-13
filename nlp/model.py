@@ -21,12 +21,13 @@ import pytorch_lightning as pl
 from os.path import dirname, realpath
 from pathlib import Path
 
-from nlp.dataset import WordCountDataModule, WikiBigramsDataModule, plot_roc
+from dataset import WordCountDataModule, WikiBigramsDataModule, WikiBigramsAdditionDataModule, plot_roc
 import numpy as np
 
 DATAMODULES = {
     'conll2003': WordCountDataModule,
-    'wikicorpus': WikiBigramsDataModule
+    'wikicorpus': WikiBigramsDataModule,
+    'wikicorpus_add': WikiBigramsAdditionDataModule
 }
 
 
@@ -42,8 +43,6 @@ class WordCountPredictor(pl.LightningModule):
         self.l1 = nn.Linear(self.embed_size, config["hidden_dim"])
         self.dropout = nn.Dropout(p=config["dropout_prob"])
         self.l2 = nn.Linear(config["hidden_dim"], 1)
-
-        self.example_input_array = torch.rand(1, 1, 200)
 
     def step(self, batch):
         x, y = batch
@@ -166,10 +165,10 @@ def train_simple_model(ds_name, config=dict(), args=dict()):
 
 if __name__ == "__main__":
 
-    targets, preds = train_simple_model('wikicorpus', 
+    targets, preds = train_simple_model('wikicorpus_add', 
         config={
-            "limit_prop": 0.015,
-            "concat": True,
+            "limit_prop": 0.03,
+            "concat": False,
             'num_workers': 10,
             "hidden_dim": 128,
             "dropout_prob": 0.0,
@@ -179,7 +178,7 @@ if __name__ == "__main__":
             },
         args={
             'gpus': 4,
-            'max_epochs': 60
+            'max_epochs': 10
             })
 
     print(f"targets: {targets}")
@@ -190,4 +189,3 @@ if __name__ == "__main__":
 
     # print('VAL ROC')
     # plot_roc(targets=targets, preds=preds, split='valid', hh_frac=0.01)
-

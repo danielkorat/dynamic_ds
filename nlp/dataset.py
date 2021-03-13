@@ -105,6 +105,33 @@ class WordCountDataModule(HuggingfaceDataModule):
                 pickle.dump(word_count_ds, ds_pickle)
         return word_count_ds
 
+class WikiBigramsAdditionDataModule(HuggingfaceDataModule):
+    ds_name = "wikicorpus_add"
+    ds_type = "wikicorpus"
+    
+    def __init__(self, config):
+        super().__init__(config)
+
+    @staticmethod
+    def download_and_preprocess(limit_prop, n=2, **kwargs):
+        ngrams_path = CACHE_DIR / \
+            f"{n}_grams_{WikiBigramsAdditionDataModule.ds_type}_{limit_prop * 100}%.npz"
+        features_path = CACHE_DIR / \
+            f'{n}_grams_{WikiBigramsAdditionDataModule.ds_name}_{limit_prop * 100}%_features.npz'
+
+        if isfile(features_path):
+            print(f"Loading features for WikiBigramsAdditionDataModule from: \n{features_path}")
+            res = load_features_as_tensors(features_path)
+        elif isfile(ngrams_path):
+            print(f"Loading bigrams from: \n{ngrams_path}")
+            loaded = np.load(ngrams_path)
+            res = save_features(loaded['x'], loaded['y'], features_path)
+        else:
+            print(f"Saving bigrams to cache file: {ngrams_path}")    
+            x, y = save_ngram_counts('wikicorpus', ngrams_path, limit_prop, n, 'sentence', name='tagged_en')
+            res = save_features(x, y, features_path)
+        return res
+
 
 class WikiBigramsDataModule(HuggingfaceDataModule):
     ds_name = "wikicorpus"
@@ -128,8 +155,7 @@ class WikiBigramsDataModule(HuggingfaceDataModule):
         else:
             embedder = VECTORS(cache=VECTORS_DIR)
             print("Saving WikiBigramsDataModule to cache...")
-            x, y = save_ngram_counts('wikicorpus', limit_prop=limit_prop, n=n, tokens_key='sentence', 
-                name='tagged_en', concat=concat)
+            x, y = save_ngram_counts('wikicorpus', limit_prop, n=n, tokens_key='sentence', name='tagged_en')
 
             counts, embeds = [], []
             for bigram, count in zip(x, y):
@@ -165,7 +191,6 @@ def plot_frequencies(y, xlabel, ylabel, save_name):
     plt.ylabel(ylabel)
     plt.legend([save_name])
     fig.savefig(NLP_DIR / f'{save_name}.png')
-
 
 def plot_roc(targets: dict, preds: str, split: str, hh_frac=0.01):
     # plotting predictions for <percentile>-heavy hitter
@@ -220,10 +245,7 @@ def clean(toks: list, nlp):
             
     return res_texts
 
-
-def save_ngram_counts(ds_name, limit_prop, concat, n=2, tokens_key='tokens', **kwargs):
-    save_name = f"{n}_grams_wikicorpus_{'concat_' if concat else ''}{limit_prop * 100}%"
-
+def save_ngram_counts(ds_name, cache_path, limit_prop, n=2, tokens_key='tokens', **kwargs):
     ds = load_dataset(ds_name, cache_dir=CACHE_DIR, **kwargs)['train']
     limit = int(limit_prop * len(ds))
 
@@ -255,11 +277,36 @@ def save_ngram_counts(ds_name, limit_prop, concat, n=2, tokens_key='tokens', **k
     print(f'Number of bigrams: {len(res)}')
     del res
     x_array, y_array = np.array(xs), np.array(ys)
-    np.savez_compressed(CACHE_DIR / f'{save_name}.npz', x=x_array, y=y_array)
+    np.savez_compressed(cache_path, x=x_array, y=y_array)
     return x_array, y_array
 
-            
+def save_features(x, y, features_cache):
+    print(f"Saving features for WikiBigramsAdditionDataModule to cache file: {features_cache}")
+    embedder = VECTORS(cache=VECTORS_DIR)
+
+    counts, embeds = [], []
+    for bigram, count in zip(x, y):
+        word_a, word_b = bigram.split()
+        embed_a = embedder[word_a]
+        embed_b = embedder[word_b]
+        bigram_embed = (embed_a + embed_b).cpu().detach().numpy().flatten()
+        embeds.append(bigram_embed)
+        counts.append(log([count]))
+    
+    counts_arr, embeds_arr, bigrams_arr = np.array(counts), np.array(embeds), x
+    np.savez_compressed(features_cache,
+            counts=counts_arr, embeds=embeds_arr, bigrams=x)
+    return counts_arr, embeds_arr, bigrams_arr
+
+def load_features_as_tensors(features_path):
+    feats = np.load(features_path)
+    bigram_count_ds = []
+    for count, embed, bigram in \
+        tqdm(zip(feats['counts'], feats['embeds'], feats['bigrams'])):
+        bigram_count_ds.append((torch.tensor(embed, dtype=torch.float),
+            torch.tensor(count, dtype=torch.float), bigram))
+    return bigram_count_ds
+
+
 if __name__== "__main__":
-    # WikiBigramsDataModule.download_and_preprocess(limit_prop=0.001, concat=True)
-    print(len(np.load('./true_wikicorpus_valid.npz')['x']))
-    print(len(np.load('./true_wikicorpus_train.npz')['x']))
+    WikiBigramsAdditionDataModule.download_and_preprocess(limit_prop=0.03)
