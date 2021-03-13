@@ -1,0 +1,1 @@
+tensorboard --logdir /home/daniel_nlp/learning-ds/lightning_logs

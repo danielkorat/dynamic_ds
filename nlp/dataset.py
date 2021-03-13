@@ -264,10 +264,11 @@ def save_features(x, y, cache, config):
 
     embedder_cls = VECTORS[embed_type]
 
+    embed_kwargs = EMBED_KWARGS.get(embed_type, {})
     if embed_type in FIXED_DIM_EMBED_TYPES:
-        embedder = embedder_cls(cache=VECTORS_DIR, **EMBED_KWARGS[embed_type])
+        embedder = embedder_cls(cache=VECTORS_DIR, **embed_kwargs)
     else:
-        embedder = embedder_cls(cache=VECTORS_DIR, dim=embed_dim, **EMBED_KWARGS[embed_type])
+        embedder = embedder_cls(cache=VECTORS_DIR, dim=embed_dim, **embed_kwargs)
 
     counts, embeds = [], []
     for bigram, count in tqdm(zip(x, y)):
@@ -275,12 +276,13 @@ def save_features(x, y, cache, config):
             word_a, word_b = bigram.split()
             embed_a = embedder[word_a]
             embed_b = embedder[word_b]
+
             bigram_embed = (embed_a + embed_b) if op == 'add' else \
-                torch.cat((embed_a, embed_b), dim=1)
+                torch.cat((embed_a, embed_b), dim=-1)
         else:
             bigram_embed = embedder[bigram]
 
-        embeds.append(bigram_embed.cpu().detach().numpy().flatten())
+        embeds.append(bigram_embed.view(1, -1).cpu().detach().numpy().flatten())
         counts.append(log([count]))
     
     counts_arr, embeds_arr, bigrams_arr = np.array(counts), np.array(embeds), x
@@ -305,6 +307,6 @@ if __name__== "__main__":
         'embed_dim': 100,
         'op': 'concat',
         'n': 2,
-        'limit_prop': 0.00012
+        'limit_prop': 0.0008
     }
     NGramData.download_and_preprocess(config)

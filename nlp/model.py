@@ -21,7 +21,8 @@ import pytorch_lightning as pl
 from os.path import dirname, realpath
 from pathlib import Path
 
-from nlp.dataset import NGramData, plot_roc, get_feats_repr
+from pytorch_lightning.core.memory import ModelSummary
+from dataset import NGramData, plot_roc, get_feats_repr
 import numpy as np
 
 
@@ -101,6 +102,10 @@ def train_simple_model(config=dict(), args=dict()):
     datamodule = NGramData(config)
     model = CountPredictor(config)
 
+    summary = ModelSummary(model, mode='full')
+    model_size = summary.model_size
+    print(f'Model_size: {model_size}')
+
     # ------------
     # training
     # ------------
@@ -117,6 +122,8 @@ def train_simple_model(config=dict(), args=dict()):
     # ------------
     
     test_loss = trainer.test(model, datamodule=datamodule)
+
+    print('Running prediction on all splits..')
 
     with torch.no_grad():
         test_input, test_true, test_output = predict(
@@ -154,34 +161,38 @@ def train_simple_model(config=dict(), args=dict()):
     )
 
     print(hpramas_str)
-    return targets_paths, preds_path
+    print(f"targets: {targets_paths}")
+    print(f"preds: {preds_path}")
+    return targets_paths, preds_path, model_size
 
 if __name__ == "__main__":
-    targets, preds = train_simple_model( 
-        config={
+    config = config={
             'ds_name': 'wikicorpus',
-            'embed_type': 'CharNGram',
-            'embed_dim': 100,
-            'op': 'concat',
+            'embed_type': 'Glove',
+            'embed_dim': 50,
+            'op': 'add',
             'n': 2,
-            "limit_prop": 0.01,
-            'num_workers': 10,
-            "hidden_dim": 128,
+            "limit_prop": 0.001,
+            'num_workers': 22,
+            "hidden_dim": 64,
             "dropout_prob": 0.0,
             "optim": Adam,
-            "learning_rate": 0.0001,
+            "learning_rate": 0.001,
             "batch_size": 128
-            },
-        args={
-            'gpus': 4,
-            'max_epochs': 60
-            })
+            }
+    args= {
+            # 'gpus': 4,
+            'max_epochs': 30
+            }
 
-    print(f"targets: {targets}")
-    print(f"preds: {preds}")
+    targets, preds, model_size = train_simple_model(config=config, args=args)
 
-    print('TEST ROC')
+    # print('TEST ROC')
     plot_roc(targets=targets, preds=preds, split='test', hh_frac=0.01)
 
     # print('VAL ROC')
     # plot_roc(targets=targets, preds=preds, split='valid', hh_frac=0.01)
+
+    # targets = {'train': '/data/home/daniel_nlp/learning-ds/nlp/true_3.0%_wikicorpus_2-grams_concat_CharNGram.100_train.npz', 'test': '/data/home/daniel_nlp/learning-ds/nlp/true_3.0%_wikicorpus_2-grams_concat_CharNGram.100_test.npz', 'valid': '/data/home/daniel_nlp/learning-ds/nlp/true_3.0%_wikicorpus_2-grams_concat_CharNGram.100_valid.npz'}
+    # preds = '/data/home/daniel_nlp/learning-ds/nlp/pred_3.0%_wikicorpus_2-grams_concat_CharNGram.100.npz'
+    # plot_roc(targets=targets, preds=preds, split='test', hh_frac=0.01)
