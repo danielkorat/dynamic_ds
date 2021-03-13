@@ -15,6 +15,23 @@ def get_best_loss_space(data):
     )
     return loss, space_actual
 
+def smooth_out(data, model_size):
+    indices = np.argsort(data["space_actual"])
+    space_actual = (data["space_actual"][indices] / 1e6 + model_size).tolist()
+    loss_all = data["loss_all"][indices].tolist()
+    while True:
+        j = 0
+        while j + 1 < len(space_actual) - 1:
+            j += 1
+            if loss_all[j + 1] > loss_all[j]:
+                del loss_all[j + 1]
+                del space_actual[j + 1]
+                break
+
+        if j == len(space_actual) - 1:
+            break
+    return loss_all, space_actual
+
 
 class PlotLossVsSpace:
     def __init__(
@@ -121,10 +138,10 @@ class PlotLossVsSpace:
             for i, cmin_result in enumerate(args.learned_cmin):
                 data = np.load(cmin_result)
                 if len(data["loss_all"].shape) == 1:
-                    print("plot testing results for cutoff cmin")
+                    loss_all, space_actual = smooth_out(data, model_size=args.model_sizes[i])
                     ax.plot(
-                        data["space_actual"] / 1e6 + args.model_sizes[i],
-                        data["loss_all"],
+                        space_actual,
+                        loss_all,
                         label=args.model_names[i],
                     )
                 else:
