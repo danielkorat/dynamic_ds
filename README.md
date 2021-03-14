@@ -10,6 +10,9 @@ python3.6 -m virtualenv .env
 source .env/bin/activate
 
 ```
+
+## TODO add notebook link
+
 ## recreating graphs
 to recreate graphs from original paper, do the following:
 1. download from here the predictions https://drive.google.com/file/d/1PlmYUYEWHKJWOOyR1GrBuV3mcbSBdpiV/view and extract
