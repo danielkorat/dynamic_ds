@@ -56,17 +56,17 @@ class CountPredictor(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         loss = self.step(batch)
-        self.log("train_loss", loss, on_step=False, on_epoch=True)
+        self.log("train_loss", loss, on_step=True, on_epoch=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         loss = self.step(batch)
-        self.log("val_loss", loss, on_step=False, on_epoch=True)
+        self.log("val_loss", loss, on_step=True, on_epoch=True)
         return loss
 
     def test_step(self, batch, batch_idx):
         loss = self.step(batch)
-        self.log("test_loss", loss, on_step=False, on_epoch=True)
+        self.log("test_loss", loss, on_step=True, on_epoch=True)
         return loss
 
     def configure_optimizers(self):
