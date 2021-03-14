@@ -1,5 +1,3 @@
-from http.client import RESET_CONTENT
-from itertools import combinations
 from operator import itemgetter
 from os.path import dirname, realpath, isfile
 import pickle
@@ -298,15 +296,3 @@ def load_features_as_tensors(features_path):
         bigram_count_ds.append((torch.tensor(embed, dtype=torch.float),
             torch.tensor(count, dtype=torch.float), bigram))
     return bigram_count_ds
-
-
-if __name__== "__main__":
-    config = {
-        'ds_name': 'wikicorpus',
-        'embed_type': 'CharNGram',
-        'embed_dim': 100,
-        'op': 'concat',
-        'n': 2,
-        'limit_prop': 0.0008
-    }
-    NGramData.download_and_preprocess(config)

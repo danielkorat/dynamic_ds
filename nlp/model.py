@@ -166,7 +166,7 @@ def train_simple_model(config=dict(), args=dict()):
     return targets_paths, preds_path, model_size
 
 if __name__ == "__main__":
-    config = config={
+    config = {
             'ds_name': 'wikicorpus',
             'embed_type': 'Glove',
             'embed_dim': 50,
@@ -179,20 +179,16 @@ if __name__ == "__main__":
             "optim": Adam,
             "learning_rate": 0.001,
             "batch_size": 128
-            }
-    args= {
+        }
+    args = {
             # 'gpus': 4,
-            'max_epochs': 1
-            }
+            'max_epochs': 10
+        }
 
     targets, preds, model_size = train_simple_model(config=config, args=args)
 
-    # print('TEST ROC')
+    print('TEST ROC')
     plot_roc(targets=targets, preds=preds, split='test', hh_frac=0.01)
 
-    # print('VAL ROC')
-    # plot_roc(targets=targets, preds=preds, split='valid', hh_frac=0.01)
-
-    # targets = {'train': '/data/home/daniel_nlp/learning-ds/nlp/true_3.0%_wikicorpus_2-grams_concat_CharNGram.100_train.npz', 'test': '/data/home/daniel_nlp/learning-ds/nlp/true_3.0%_wikicorpus_2-grams_concat_CharNGram.100_test.npz', 'valid': '/data/home/daniel_nlp/learning-ds/nlp/true_3.0%_wikicorpus_2-grams_concat_CharNGram.100_valid.npz'}
-    # preds = '/data/home/daniel_nlp/learning-ds/nlp/pred_3.0%_wikicorpus_2-grams_concat_CharNGram.100.npz'
-    # plot_roc(targets=targets, preds=preds, split='test', hh_frac=0.01)
+    print('VAL ROC')
+    plot_roc(targets=targets, preds=preds, split='valid', hh_frac=0.01)
