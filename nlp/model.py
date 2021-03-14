@@ -22,7 +22,7 @@ from os.path import dirname, realpath
 from pathlib import Path
 
 from pytorch_lightning.core.memory import ModelSummary
-from dataset import NGramData, plot_roc, get_feats_repr
+from nlp.dataset import NGramData, plot_roc, get_feats_repr
 import numpy as np
 
 
@@ -56,17 +56,17 @@ class CountPredictor(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         loss = self.step(batch)
-        self.log("train_loss", loss)
+        self.log("train_loss", loss, on_step=False, on_epoch=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         loss = self.step(batch)
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, on_step=False, on_epoch=True)
         return loss
 
     def test_step(self, batch, batch_idx):
         loss = self.step(batch)
-        self.log("test_loss", loss)
+        self.log("test_loss", loss, on_step=False, on_epoch=True)
         return loss
 
     def configure_optimizers(self):
@@ -170,9 +170,9 @@ if __name__ == "__main__":
             'ds_name': 'wikicorpus',
             'embed_type': 'Glove',
             'embed_dim': 50,
-            'op': 'add',
+            'op': 'concat',
             'n': 2,
-            "limit_prop": 0.001,
+            "limit_prop": 0.03,
             'num_workers': 22,
             "hidden_dim": 64,
             "dropout_prob": 0.0,
@@ -182,7 +182,7 @@ if __name__ == "__main__":
             }
     args= {
             # 'gpus': 4,
-            'max_epochs': 30
+            'max_epochs': 1
             }
 
     targets, preds, model_size = train_simple_model(config=config, args=args)
