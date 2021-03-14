@@ -22,7 +22,7 @@ from os.path import dirname, realpath
 from pathlib import Path
 
 from pytorch_lightning.core.memory import ModelSummary
-from nlp.dataset import NGramData, plot_roc, get_feats_repr
+from dataset import NGramData, plot_roc, get_feats_repr
 import numpy as np
 
 
@@ -172,7 +172,7 @@ if __name__ == "__main__":
             'embed_dim': 50,
             'op': 'concat',
             'n': 2,
-            "limit_prop": 0.03,
+            "limit_prop": 0.001,
             'num_workers': 22,
             "hidden_dim": 64,
             "dropout_prob": 0.0,
@@ -182,7 +182,7 @@ if __name__ == "__main__":
         }
     args = {
             # 'gpus': 4,
-            'max_epochs': 10
+            'max_epochs': 1
         }
 
     targets, preds, model_size = train_simple_model(config=config, args=args)

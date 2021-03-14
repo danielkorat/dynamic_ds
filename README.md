@@ -10,7 +10,8 @@ Developed on Ubuntu 16.04.3 LTS
 ```
 git clone https://github.com/danielkorat/learning-ds.git
 cd learning-ds
-pip install -r requirements
+pip install tensorflow_gpu==1.15.0
+pip install -r requirements.txt
 ```
 
 ## Notebook
